@@ -127,6 +127,10 @@ typedef struct
 	bool renderPicbuttonText;
 
 	int lowmemory;
+	// XM item 0: the finer gate for the menu background/button-strip load,
+	// read from "ui_xbox_menu_art" the same way lowmemory reads
+	// "host_lowmemorymode" - see BackgroundBitmap.cpp/Btns.cpp for use.
+	int xboxMenuArt;
 
 	char sounds[SND_COUNT][40];
 } uiStatic_t;

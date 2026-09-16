@@ -34,7 +34,10 @@ CBtnsManager::LoadBmpButtons
 */
 void CBtnsManager::LoadBmpButtons()
 {
-	if( uiStatic.lowmemory || uiStatic.renderPicbuttonText )
+	// XM item 0 (fork-plan.md): same finer gate as BackgroundBitmap.cpp -
+	// the pre-HL25 bitmap button strip is budgeted and measured on its own,
+	// separately from every other lowmemory effect.
+	if( ( uiStatic.lowmemory && !uiStatic.xboxMenuArt ) || uiStatic.renderPicbuttonText )
 		return;
 
 	CBMP *bmp = CBMP::LoadFile( ART_BUTTONS_MAIN );
