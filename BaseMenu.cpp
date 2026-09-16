@@ -1165,6 +1165,10 @@ void UI_Init( void )
 
 	uiStatic.initialized = true;
 	uiStatic.lowmemory = (int)EngFuncs::GetCvarFloat( "host_lowmemorymode" );
+	// XM item 0: the finer gate - lowmemory alone would also block the
+	// retail background/button-strip load, which XM item 0 measured and
+	// budgeted separately. See host.c's registration of this cvar.
+	uiStatic.xboxMenuArt = (int)EngFuncs::GetCvarFloat( "ui_xbox_menu_art" );
 
 	// setup game info
 	gameinfo2_t *gi = EngFuncs::GetGameInfo();

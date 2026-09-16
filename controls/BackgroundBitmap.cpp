@@ -348,7 +348,10 @@ void CMenuBackgroundBitmap::LoadBackground()
 	s_bGameHasSteamBackground = false;
 	s_bGameHasWONBackground = false;
 
-	if( uiStatic.lowmemory )
+	// XM item 0 (fork-plan.md): lowmemory alone would also block the retail
+	// background here, but that load is budgeted and measured on its own -
+	// uiStatic.xboxMenuArt ("ui_xbox_menu_art") is the finer gate.
+	if( uiStatic.lowmemory && !uiStatic.xboxMenuArt )
 		return;
 
 	if( LoadSteamBackground( true ))
