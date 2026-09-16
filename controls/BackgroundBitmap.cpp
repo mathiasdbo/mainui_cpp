@@ -350,8 +350,12 @@ void CMenuBackgroundBitmap::LoadBackground()
 
 	// XM item 0 (fork-plan.md): lowmemory alone would also block the retail
 	// background here, but that load is budgeted and measured on its own -
-	// uiStatic.xboxMenuArt ("ui_xbox_menu_art") is the finer gate.
-	if( uiStatic.lowmemory && !uiStatic.xboxMenuArt )
+	// "ui_xbox_menu_art" is the finer gate. Read live, not cached in
+	// uiStatic at UI_Init time (BaseMenu.cpp's own UI_Init comment on why
+	// this function is called from UI_UpdateMenu instead: cvars from user
+	// configs are not live yet at Init) - measured live, 2026-09-16, a
+	// cached read never saw a userconfig.d override.
+	if( uiStatic.lowmemory && !EngFuncs::GetCvarFloat( "ui_xbox_menu_art" ))
 		return;
 
 	if( LoadSteamBackground( true ))

@@ -1165,10 +1165,18 @@ void UI_Init( void )
 
 	uiStatic.initialized = true;
 	uiStatic.lowmemory = (int)EngFuncs::GetCvarFloat( "host_lowmemorymode" );
-	// XM item 0: the finer gate - lowmemory alone would also block the
-	// retail background/button-strip load, which XM item 0 measured and
-	// budgeted separately. See host.c's registration of this cvar.
-	uiStatic.xboxMenuArt = (int)EngFuncs::GetCvarFloat( "ui_xbox_menu_art" );
+	// XM item 0's "ui_xbox_menu_art" is deliberately NOT cached here into
+	// uiStatic the way lowmemory is: UI_Init runs before user configs are
+	// exec'd (this function's own reason LoadBackground below is called
+	// from UI_UpdateMenu instead of here - "can't do this in Init, since
+	// these are dependent on cvar values set from user configs"), so a
+	// value cached at this point could never see a config's override -
+	// measured live, 2026-09-16: a userconfig.d override still read as the
+	// stale pre-config default. host_lowmemorymode is read-only and never
+	// meant to be config-set, so it is unaffected by the same timing;
+	// xboxMenuArt is meant to be toggled for exactly that measurement, so
+	// BackgroundBitmap.cpp/Btns.cpp read the cvar directly, live, at their
+	// own (later) call sites instead.
 
 	// setup game info
 	gameinfo2_t *gi = EngFuncs::GetGameInfo();
