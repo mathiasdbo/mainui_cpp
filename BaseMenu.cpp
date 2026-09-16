@@ -620,6 +620,17 @@ void UI_UpdateMenu( float flTime )
 		// load background bitmaps
 		CMenuBackgroundBitmap::LoadBackground( );
 
+		// XM item 0 (fork-plan.md), Codex review round 1: moved here from
+		// UI_Precache, same reasoning as LoadBackground above - see
+		// UI_Precache's own comment where this used to live.
+		uiStatic.btns.LoadBmpButtons();
+
+		// all menu buttons have the same view sizes
+		if( uiStatic.btns.GetWidth() == 0 || uiStatic.btns.GetHeight() == 0 )
+			uiStatic.buttons_draw_size = Size( UI_BUTTONS_WIDTH, UI_BUTTONS_HEIGHT );
+		else
+			uiStatic.buttons_draw_size = Size( uiStatic.btns.GetWidth() * 1024 / 640, uiStatic.btns.GetHeight() * 768 / 480 );
+
 		// load localized strings
 		UI_LoadCustomStrings();
 
@@ -879,14 +890,16 @@ void UI_Precache( void )
 	EngFuncs::PIC_Load( UI_DOWNARROWFOCUS );
 	EngFuncs::PIC_Load( "gfx/shell/splash" );
 
-	// load all menu buttons
-	uiStatic.btns.LoadBmpButtons();
-
-	// all menu buttons have the same view sizes
-	if( uiStatic.btns.GetWidth() == 0 || uiStatic.btns.GetHeight() == 0 )
-		uiStatic.buttons_draw_size = Size( UI_BUTTONS_WIDTH, UI_BUTTONS_HEIGHT );
-	else
-		uiStatic.buttons_draw_size = Size( uiStatic.btns.GetWidth() * 1024 / 640, uiStatic.btns.GetHeight() * 768 / 480 );
+	// XM item 0 (fork-plan.md), Codex review round 1: LoadBmpButtons() and
+	// the buttons_draw_size it feeds used to run here, from UI_Precache -
+	// called once, from the first UI_VidInit, itself called from CL_Init
+	// (host.c) BEFORE userconfig.d executes (host.c, also before this
+	// function's own read of "ui_xbox_menu_art" could ever see a
+	// userconfig.d override, no matter how live that read is). Moved to
+	// UI_UpdateMenu's own loadStuff block below, next to LoadBackground -
+	// this file's existing comment there is exactly this same reasoning,
+	// already applied to the background load ("can't do this in Init,
+	// since these are dependent on cvar values set from user configs").
 
 	for( CMenuEntry *entry = s_pEntries; entry; entry = entry->m_pNext )
 	{
