@@ -176,12 +176,16 @@ void CMenuGameOptions::_Init( void )
 	done.iFlags |= QMF_NOTIFY;
 	done.SetCoord( 72, 440 );
 
+	// Codex review round 2: registration order IS pad focus order
+	// (ItemsHolder.cpp), independent of on-screen position - same class
+	// of bug divergence #66 already found in Main.cpp. Done is visually
+	// last (y=440, below all three checkboxes), so it is registered
+	// last too.
 	AddItem( heading );
-	AddItem( done );
-
 	AddItem( autoAim );
 	AddItem( crosshair );
 	AddItem( fastSwitch );
+	AddItem( done );
 }
 #else
 void CMenuGameOptions::_Init( void )
