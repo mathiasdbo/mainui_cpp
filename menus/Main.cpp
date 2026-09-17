@@ -340,9 +340,22 @@ void CMenuMain::_Init( void )
 	if ( bTrainMap )
 		AddItem( hazardCourse );
 
+	// XM.1 (Codex review): registration order IS focus order
+	// (ItemsHolder.cpp), independent of on-screen position - it has to
+	// match each platform's own VidInit() stacking, not just this
+	// platform's, or Up/Down jumps around the retail PC layout that
+	// keeps Configuration above Load Game. saveGame stays registered
+	// (never visible) on non-Xbox too - an invisible item is skipped by
+	// navigation, so its exact slot there doesn't matter.
+#if XASH_XBOX
 	AddItem( loadGame );
 	AddItem( saveGame );
 	AddItem( configuration );
+#else
+	AddItem( configuration );
+	AddItem( loadGame );
+	AddItem( saveGame );
+#endif // XASH_XBOX
 
 #if !XASH_XBOX
 	AddItem( multiPlayer );
