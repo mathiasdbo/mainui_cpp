@@ -135,31 +135,36 @@ void CMenuBackgroundBitmap::Draw()
 		// XM item 0 step 3: only one profile stays resident (LoadBackground()
 		// already freed the loser), so flipping the preference at runtime has
 		// to move residency over, not just repoint s_state - (re)load
-		// whichever side is now preferred if it isn't loaded, then free the
-		// side losing the flip.
+		// whichever side is now preferred if it isn't loaded, and only free
+		// the side losing the flip once the replacement actually loaded
+		// (Codex review round 1: PIC_Load can fail - out of memory, a
+		// missing file - and freeing the old side unconditionally would
+		// then discard a background that was still working for one that
+		// silently isn't there).
 		bstate_e prevState = s_state;
 
 		UpdatePreference();
 
 		if( s_state != prevState )
 		{
+			bool switched = true;
+
 			if( s_state == DRAW_WON && !s_WONBackground.hImage )
-			{
-				if( !LoadWONBackground( true ))
-					LoadWONBackground( false );
-			}
+				switched = LoadWONBackground( true ) || LoadWONBackground( false );
 			else if( s_state == DRAW_STEAM && s_SteamBackground.Count() == 0 )
+				switched = LoadSteamBackground( true ) || LoadSteamBackground( false );
+
+			if( switched )
 			{
-				if( !LoadSteamBackground( true ))
-					LoadSteamBackground( false );
+				if( prevState == DRAW_WON )
+					FreeWONBackground();
+				else if( prevState == DRAW_STEAM )
+					FreeSteamBackground();
 			}
-
-			if( prevState == DRAW_WON )
-				FreeWONBackground();
-			else if( prevState == DRAW_STEAM )
-				FreeSteamBackground();
-
-			UpdatePreference(); // settle s_state now that the flip side may have just loaded
+			else
+			{
+				s_state = prevState; // reload failed - keep showing what's still resident
+			}
 		}
 
 		// because the cvar is set by user, tell them if chosen background is not available
@@ -246,6 +251,12 @@ bool CMenuBackgroundBitmap::LoadSteamBackground( bool gamedirOnly )
 	char token[4096];
 
 	bool loaded = false;
+	// XM item 0 step 3 (Codex review round 1): remember what was already
+	// in s_SteamBackground before this attempt, so a failed parse rolls
+	// back only what THIS call appended, rather than leaving a partial
+	// tile set behind that a later Count() > 0 check could mistake for a
+	// complete, displayable background.
+	const int startCount = s_SteamBackground.Count();
 
 	// try 25'th anniversary update background first
 	if( FBitSet( gMenu.m_gameinfo.flags, GFL_HD_BACKGROUND ))
@@ -308,6 +319,16 @@ bool CMenuBackgroundBitmap::LoadSteamBackground( bool gamedirOnly )
 	loaded = true;
 
 freefile:
+	if( !loaded )
+	{
+		// roll back this attempt's own partial tile list - see startCount above
+		while( s_SteamBackground.Count() > startCount )
+		{
+			EngFuncs::PIC_Free( s_SteamBackground[s_SteamBackground.Count() - 1].name );
+			s_SteamBackground.Remove( s_SteamBackground.Count() - 1 );
+		}
+	}
+
 	EngFuncs::COM_FreeFile( afile );
 	return loaded;
 }
@@ -414,13 +435,26 @@ void CMenuBackgroundBitmap::LoadBackground()
 	if( uiStatic.lowmemory && !EngFuncs::GetCvarFloat( "ui_xbox_menu_art" ))
 		return;
 
+	// XM item 0 step 3 (Codex review round 1): s_bGameHasXBackground drives
+	// UpdatePreference()'s decision, so it has to mean "this background
+	// exists at all" - found via THIS gamedir or via the base fallback -
+	// not just "found in the game's own directory". Before this fix that
+	// narrower meaning was harmless because both backgrounds were always
+	// loaded unconditionally, so UpdatePreference()'s own secondary
+	// fallback (checking what's actually resident) caught a base-only
+	// background; now that the loser gets freed, that secondary signal is
+	// gone for the profile not currently shown, and a base-only
+	// background would otherwise read as unavailable forever.
 	if( LoadSteamBackground( true ))
 	{
 		Con_DPrintf( "%s: found %s background in %s directory\n", __func__, "steam", "game" );
 		s_bGameHasSteamBackground = true;
 	}
 	else if( LoadSteamBackground( false ))
+	{
 		Con_DPrintf( "%s: found %s background in %s directory\n", __func__, "steam", "base" );
+		s_bGameHasSteamBackground = true;
+	}
 
 	if( LoadWONBackground( true ))
 	{
@@ -428,7 +462,10 @@ void CMenuBackgroundBitmap::LoadBackground()
 		s_bGameHasWONBackground = true;
 	}
 	else if( LoadWONBackground( false ))
+	{
 		Con_DPrintf( "%s: found %s background in %s directory\n", __func__, "won", "base" );
+		s_bGameHasWONBackground = true;
+	}
 
 	UpdatePreference();
 
