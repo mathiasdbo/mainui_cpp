@@ -61,12 +61,25 @@ void CMenuOptions::_Init( void )
 		PC_AUDIO, UI_Audio_Menu, QMF_NOTIFY );
 	AddButton( L( "GameUI_Video" ), L( "Change screen size, video mode and gamma" ),
 		PC_VIDEO, UI_Video_Menu, QMF_NOTIFY );
+#if !XASH_XBOX
 	AddButton( L( "Touch" ), L( "Change touch settings and buttons" ),
 		PC_TOUCH, UI_Touch_Menu, QMF_NOTIFY, 't' );
+#endif // !XASH_XBOX
 	AddButton( L( "GameUI_Joystick" ), L( "Change gamepad axis and button settings" ),
 		PC_GAMEPAD, UI_GamePad_Menu, QMF_NOTIFY, 'g' );
+#if XASH_XBOX
+	// XM.1 (fork-plan.md): "Controls" and "Video" stay pointed at their
+	// stock screens for now - renaming them to "Controller"/"Display"
+	// belongs to whichever change actually rebuilds those screens (items
+	// 5 and 7), not this one; doing it here first would label a button
+	// with a screen that does not exist yet. "Game" has no such
+	// dependency - GameOptions.cpp is already reshaped for Xbox.
+	AddButton( L( "Game" ), L( "Auto-aim, crosshair, weapon switching" ),
+		PC_ADV_OPT, UI_GameOptions_Menu, QMF_NOTIFY );
+#else
 	AddButton( L( "Update" ), L( "Check for updates" ),
 		PC_UPDATE, msgBox.MakeOpenEvent(), QMF_NOTIFY );
+#endif // XASH_XBOX
 	AddButton( L( "Done" ), L( "Go back to the Main menu" ),
 		PC_DONE, VoidCb( &CMenuOptions::Hide ), QMF_NOTIFY );
 }

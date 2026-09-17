@@ -33,15 +33,32 @@ class CMenuGameOptions : public CMenuFramework
 public:
 	CMenuGameOptions() : CMenuFramework("CMenuGameOptions") { }
 
+#if !XASH_XBOX
 	bool KeyDown( int key ) override;
 	void SetNetworkMode( int maxpacket, int maxpayload, int cmdrate, int updaterate, int rate );
+#endif // !XASH_XBOX
 private:
 	void _Init() override;
+#if XASH_XBOX
+	void SaveAndPopMenu() override;
+#else
 	void SaveCb( );
 	void RestoreCb( );
 	void Restore();
 	void GetConfig();
+#endif // XASH_XBOX
 
+#if XASH_XBOX
+	// XM.1 (fork-plan.md): this screen is reshaped entirely on Xbox -
+	// Auto-aim and Crosshair move in from AdvancedControls.cpp (hidden
+	// under XASH_XBOX there, divergences.md), plus a new Fast weapon
+	// switch row (hud_fastswitch, deps/hlsdk/cl_dll/ammo.cpp:293 - a
+	// real client cvar no mainui screen linked before this). Everything
+	// below is the stock PC screen's own network/performance tuning,
+	// none of which a fixed console target exposes to a player.
+	CMenuAction heading;
+	CMenuCheckBox autoAim, crosshair, fastSwitch;
+#else
 	CMenuSpinControl	maxFPS;
 	//CMenuCheckBox	hand;
 	CMenuCheckBox	allowDownload;
@@ -50,6 +67,7 @@ private:
 	CMenuSpinControl	cmdrate, updaterate, rate;
 	CMenuAction networkMode;
 	CMenuCheckBox normal, dsl, slowest;
+#endif // XASH_XBOX
 };
 
 /*
@@ -57,6 +75,16 @@ private:
 UI_GameOptions_KeyFunc
 =================
 */
+#if XASH_XBOX
+void CMenuGameOptions::SaveAndPopMenu()
+{
+	autoAim.WriteCvar();
+	crosshair.WriteCvar();
+	fastSwitch.WriteCvar();
+
+	CMenuFramework::SaveAndPopMenu();
+}
+#else
 bool CMenuGameOptions::KeyDown( int key )
 {
 	if( UI::Key::IsEscape( key ) )
@@ -93,18 +121,55 @@ void CMenuGameOptions::Restore()
 	updaterate.DiscardChanges();
 	rate.DiscardChanges();
 }
+#endif // XASH_XBOX
 
+#if !XASH_XBOX
 void CMenuGameOptions::RestoreCb()
 {
 	Restore();
 	Hide();
 }
+#endif // !XASH_XBOX
 
 /*
 =================
 UI_GameOptions_Init
 =================
 */
+#if XASH_XBOX
+void CMenuGameOptions::_Init( void )
+{
+	// XM.1: text heading in place of a head_*.bmp banner - every
+	// sub-screen heading on Xbox is drawn this way, not loaded as art.
+	heading.iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
+	heading.szName = L( "Game" );
+	heading.colorBase = uiColorHelp;
+	heading.SetCharSize( QM_BIGFONT );
+	heading.SetRect( 72, 200, 400, 32 );
+
+	autoAim.SetNameAndStatus( L( "GameUI_AutoAim" ), L( "GameUI_AutoaimLabel" ) );
+	autoAim.LinkCvar( "sv_aim" );
+	autoAim.iFlags |= QMF_NOTIFY;
+	autoAim.SetCoord( 72, 260 );
+
+	crosshair.SetNameAndStatus( L( "Crosshair" ), L( "Enable the weapon aiming crosshair" ) );
+	crosshair.LinkCvar( "crosshair" );
+	crosshair.iFlags |= QMF_NOTIFY;
+	crosshair.SetCoord( 72, 310 );
+
+	fastSwitch.SetNameAndStatus( L( "Fast weapon switch" ), L( "Select a weapon with one button press" ) );
+	fastSwitch.LinkCvar( "hud_fastswitch" );
+	fastSwitch.iFlags |= QMF_NOTIFY;
+	fastSwitch.SetCoord( 72, 360 );
+
+	AddItem( heading );
+	AddButton( L( "Done" ), nullptr, PC_DONE, VoidCb( &CMenuGameOptions::SaveAndPopMenu ) );
+
+	AddItem( autoAim );
+	AddItem( crosshair );
+	AddItem( fastSwitch );
+}
+#else
 void CMenuGameOptions::_Init( void )
 {
 	banner.SetPicture( ART_BANNER );
@@ -201,5 +266,6 @@ void CMenuGameOptions::_Init( void )
 		rate.SetCoord( 650, 370 );
 	}
 }
+#endif // XASH_XBOX
 
 ADD_MENU( menu_gameoptions, CMenuGameOptions, UI_GameOptions_Menu );
