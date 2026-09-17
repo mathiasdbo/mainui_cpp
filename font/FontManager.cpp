@@ -557,7 +557,30 @@ bool CFontManager::FindFontDataFile( const char *name, int tall, int weight, int
 	}
 	else if( !strcmp( name, "Tahoma" ))
 	{
+#if XASH_XBOX
+		// XM.1 item 13 step 6 found this the hard way: a German test disc
+		// rendered menu row labels correctly (through "Trebuchet MS" ->
+		// Fira Sans Condensed) but mangled the SAME accented characters in
+		// every status/help line ("fruher", "?dern") - both go through
+		// UI_DrawString (EngFuncs::DrawConsoleString is a thin wrapper over
+		// it, controls/*.cpp's 8 call sites), the only difference being
+		// which font handle: hConsoleFont, built from THIS family, "Tahoma".
+		// Root cause was identical in shape to Trebuchet's own fix, just
+		// never applied here: "Tahoma" mapped only to tahoma.ttf, which is
+		// deliberately never staged (Wine's, LGPL, excluded on licence -
+		// the "improvement declined on licence" note this fork already
+		// carries), so CStbFont::Create fails to find it and
+		// CFontBuilder::Create falls back silently to CBitmapFont, whose
+		// charset is ASCII plus Cyrillic only (BitmapFont.cpp:87-93) - no
+		// Latin-1 or Extended-A at all. Reuses the Fira Sans Condensed file
+		// already staged and already proven at 382/382 glyph coverage,
+		// rather than a second font: this face is tall 11, the smallest on
+		// screen, and a second family for it would be a whole extra atlas
+		// for text nobody would tell apart from the UI face at that size.
+		Q_strncpy( dataFile, "gfx/fonts/FiraSansCondensed-Regular.ttf", dataFileChars );
+#else
 		Q_strncpy( dataFile, "gfx/fonts/tahoma.ttf", dataFileChars );
+#endif
 		return true;
 	}
 
