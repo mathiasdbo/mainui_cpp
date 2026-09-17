@@ -132,7 +132,35 @@ void CMenuBackgroundBitmap::Draw()
 
 	if( FBitSet( ui_prefer_won_background->flags, FCVAR_CHANGED ))
 	{
+		// XM item 0 step 3: only one profile stays resident (LoadBackground()
+		// already freed the loser), so flipping the preference at runtime has
+		// to move residency over, not just repoint s_state - (re)load
+		// whichever side is now preferred if it isn't loaded, then free the
+		// side losing the flip.
+		bstate_e prevState = s_state;
+
 		UpdatePreference();
+
+		if( s_state != prevState )
+		{
+			if( s_state == DRAW_WON && !s_WONBackground.hImage )
+			{
+				if( !LoadWONBackground( true ))
+					LoadWONBackground( false );
+			}
+			else if( s_state == DRAW_STEAM && s_SteamBackground.Count() == 0 )
+			{
+				if( !LoadSteamBackground( true ))
+					LoadSteamBackground( false );
+			}
+
+			if( prevState == DRAW_WON )
+				FreeWONBackground();
+			else if( prevState == DRAW_STEAM )
+				FreeSteamBackground();
+
+			UpdatePreference(); // settle s_state now that the flip side may have just loaded
+		}
 
 		// because the cvar is set by user, tell them if chosen background is not available
 		if( ui_prefer_won_background->value && s_state != DRAW_WON )
@@ -257,6 +285,8 @@ bool CMenuBackgroundBitmap::LoadSteamBackground( bool gamedirOnly )
 
 		if( !img.hImage ) goto freefile;
 
+		Q_strncpy( img.name, token, sizeof( img.name ));
+
 		// ignore "scaled" attribute. What does it mean?
 		pfile = EngFuncs::COM_ParseFile( pfile, token, sizeof( token ) );
 		if( !pfile ) goto freefile;
@@ -296,6 +326,7 @@ bool CMenuBackgroundBitmap::LoadWONBackground( bool gamedirOnly )
 		img.coord.x = img.coord.y = 0;
 		img.size.w = EngFuncs::PIC_Width( img.hImage );
 		img.size.h = EngFuncs::PIC_Height( img.hImage );
+		Q_strncpy( img.name, ART_BACKGROUND, sizeof( img.name ));
 		s_WONBackground = img;
 
 		return true;
@@ -342,6 +373,31 @@ void CMenuBackgroundBitmap::UpdatePreference()
 	ClearBits( ui_prefer_won_background->flags, FCVAR_CHANGED );
 }
 
+// XM item 0 step 3 (fork-plan.md): LoadBackground() below still probes both
+// profiles by loading both once - re-parsing just to decide which one
+// exists would risk disagreeing with the real loaders' own validation, so
+// the honest way to "probe, prefer, load one" is to load both, decide, and
+// free the one not shown right away, before anything ever measures
+// resident memory. Not Xbox-guarded: a mixed-content disc wastes the same
+// memory holding two resident backgrounds on any platform, and freeing the
+// one never drawn changes nothing a player can see.
+void CMenuBackgroundBitmap::FreeWONBackground()
+{
+	if( !s_WONBackground.hImage )
+		return;
+
+	EngFuncs::PIC_Free( s_WONBackground.name );
+	s_WONBackground.hImage = 0;
+}
+
+void CMenuBackgroundBitmap::FreeSteamBackground()
+{
+	for( int i = 0; i < s_SteamBackground.Count(); i++ )
+		EngFuncs::PIC_Free( s_SteamBackground[i].name );
+
+	s_SteamBackground.RemoveAll();
+}
+
 void CMenuBackgroundBitmap::LoadBackground()
 {
 	s_bEnableLogoMovie = false;
@@ -375,4 +431,10 @@ void CMenuBackgroundBitmap::LoadBackground()
 		Con_DPrintf( "%s: found %s background in %s directory\n", __func__, "won", "base" );
 
 	UpdatePreference();
+
+	// XM item 0 step 3: keep only the displayed profile resident.
+	if( s_state == DRAW_WON )
+		FreeSteamBackground();
+	else if( s_state == DRAW_STEAM )
+		FreeWONBackground();
 }
