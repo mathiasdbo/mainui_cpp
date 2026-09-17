@@ -74,8 +74,18 @@ void CMenuOptions::_Init( void )
 	// 5 and 7), not this one; doing it here first would label a button
 	// with a screen that does not exist yet. "Game" has no such
 	// dependency - GameOptions.cpp is already reshaped for Xbox.
+	//
+	// Codex review, post-merge: PC_ADV_OPT's real ordinal is 60 (Btns.h,
+	// counted from PC_NEW_GAME=0), not 84 as first documented - inside
+	// the WON strip's populated 0-61 range (pic_count=62, Btns.cpp:59),
+	// not past it. CreateGame.cpp:227 and PlayerSetup.cpp:561 already use
+	// it for their own "Adv. Options" buttons, so its bitmap draws that
+	// exact baked-in text - a real mismatch against this row's "Game"
+	// label. PC_ADV_OPT2 is unused anywhere in this codebase and its
+	// ordinal (68) is past pic_count, so it always falls to the text
+	// path (PicButton.cpp:259) - the guarantee this row actually needs.
 	AddButton( L( "Game" ), L( "Auto-aim, crosshair, weapon switching" ),
-		PC_ADV_OPT, UI_GameOptions_Menu, QMF_NOTIFY );
+		PC_ADV_OPT2, UI_GameOptions_Menu, QMF_NOTIFY );
 #else
 	AddButton( L( "Update" ), L( "Check for updates" ),
 		PC_UPDATE, msgBox.MakeOpenEvent(), QMF_NOTIFY );
