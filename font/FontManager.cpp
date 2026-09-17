@@ -536,7 +536,23 @@ bool CFontManager::FindFontDataFile( const char *name, int tall, int weight, int
 {
 	if( !strcmp( name, "Trebuchet MS" ))
 	{
+#if XASH_XBOX
+		// XM.1 item 13: the menu's UI face on Xbox is Fira Sans Condensed,
+		// not upstream's Fira Sans. Chosen against the design canvas's own
+		// Barlow Semi Condensed after building all three as real 640x480
+		// discs and comparing the output: Barlow has NO Cyrillic at all
+		// (0/96) and misses 9 Latin Extended-A glyphs, which would have
+		// quietly capped how far this menu can ever be translated - the
+		// whole point of the work it was being chosen for. Condensed Fira
+		// keeps the canvas's narrower column at 382/382 across every range
+		// the rasterizer uploads, on the same OFL licence and superfamily
+		// already shipped, and measured identical atlas buckets to the
+		// upright face, so the swap costs nothing. Staged onto the disc by
+		// tools/xbox-xiso.sh from assets/fonts/.
+		Q_strncpy( dataFile, "gfx/fonts/FiraSansCondensed-Regular.ttf", dataFileChars );
+#else
 		Q_strncpy( dataFile, "gfx/fonts/FiraSans-Regular.ttf", dataFileChars );
+#endif
 		return true;
 	}
 	else if( !strcmp( name, "Tahoma" ))
