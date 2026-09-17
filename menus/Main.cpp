@@ -274,8 +274,12 @@ void CMenuMain::_Init( void )
 	quit.onReleased = VoidCb( &CMenuMain::QuitDialogCb );
 
 	quitButton.onReleased = VoidCb( &CMenuMain::QuitDialogCb );
-#endif // !XASH_XBOX
 
+	// XM.1 (Codex review): QMF_MOUSEONLY only means "not reachable by
+	// keyboard/pad focus" - these are still ordinary visible-by-default
+	// items (BaseItem.h), drawn every frame regardless of input method.
+	// A console has no window to minimize or close, so on Xbox neither
+	// is even set up - not just left unfocusable in the corner.
 	quitButton.SetPicture( ART_CLOSEBTN_N, ART_CLOSEBTN_F, ART_CLOSEBTN_D );
 	quitButton.iFlags = QMF_MOUSEONLY;
 	quitButton.eFocusAnimation = QM_HIGHLIGHTIFFOCUS;
@@ -284,6 +288,7 @@ void CMenuMain::_Init( void )
 	minimizeBtn.iFlags = QMF_MOUSEONLY;
 	minimizeBtn.eFocusAnimation = QM_HIGHLIGHTIFFOCUS;
 	minimizeBtn.onReleased.SetCommand( false, "minimize\n" );
+#endif // !XASH_XBOX
 
 	if ( gMenu.m_gameinfo.gamemode == GAME_MULTIPLAYER_ONLY || gMenu.m_gameinfo.startmap[0] == 0 )
 		newGame.SetGrayed( true );
@@ -365,10 +370,9 @@ void CMenuMain::_Init( void )
 
 	AddItem( previews );
 	AddItem( quit );
-#endif // !XASH_XBOX
-
 	AddItem( minimizeBtn );
 	AddItem( quitButton );
+#endif // !XASH_XBOX
 }
 
 /*
@@ -390,9 +394,8 @@ void CMenuMain::VidInit( bool connected )
 	// no visible console button gap
 	int ygap = (( 404 - 373 ) / 480.0 ) * 768.0;
 
-	// statically positioned items
-	minimizeBtn.SetRect( uiStatic.width - 72, 13, 32, 32 );
-	quitButton.SetRect( uiStatic.width - 36, 13, 32, 32 );
+	// no window to minimize or close on a console - neither exists here
+	// at all (see _Init())
 
 	configuration.SetCoord( hoffset, configuration_voffset );
 
