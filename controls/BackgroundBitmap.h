@@ -43,6 +43,7 @@ private:
 		HIMAGE hImage;
 		Point coord;
 		Size size;
+		char name[64]; // XM item 0 step 3: PIC_Free() frees by name, not handle
 	};
 
 	enum bstate_e
@@ -60,6 +61,14 @@ private:
 	static bool LoadSteamBackground( const bool gamedirOnly ); // Steam background loader
 	static bool LoadWONBackground( const bool gamedirOnly ); // WON background loader
 	static void UpdatePreference();
+
+	// XM item 0 step 3 (fork-plan.md): only the DISPLAYED profile's
+	// background may stay resident - a mixed-content disc probes both by
+	// loading both once, then frees whichever UpdatePreference() did not
+	// select, and moves the residency over when the player flips
+	// ui_prefer_won_background at runtime.
+	static void FreeWONBackground();
+	static void FreeSteamBackground();
 
 	static bool s_bEnableLogoMovie, s_bGameHasSteamBackground, s_bGameHasWONBackground;
 
