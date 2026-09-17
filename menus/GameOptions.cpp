@@ -58,6 +58,7 @@ private:
 	// none of which a fixed console target exposes to a player.
 	CMenuAction heading;
 	CMenuCheckBox autoAim, crosshair, fastSwitch;
+	CMenuPicButton done;
 #else
 	CMenuSpinControl	maxFPS;
 	//CMenuCheckBox	hand;
@@ -162,8 +163,21 @@ void CMenuGameOptions::_Init( void )
 	fastSwitch.iFlags |= QMF_NOTIFY;
 	fastSwitch.SetCoord( 72, 360 );
 
+	// Codex review round 1: AddButton()'s own auto-position (72, 230 +
+	// 50 per button, BaseMenu.h's UI_BUTTONS_HEIGHT=42) put the first
+	// button at y=230-272, overlapping both the heading (200-232) and
+	// Auto-aim (260-292) - a real, live-catchable defect this session's
+	// tools could not see rendered. Positioned explicitly instead,
+	// below all three checkboxes, the same manual-member pattern
+	// AdvancedControls.cpp's own "done" already uses (`:150-152`).
+	done.SetNameAndStatus( L( "Done" ), nullptr );
+	done.SetPicture( PC_DONE );
+	done.onReleased = VoidCb( &CMenuGameOptions::SaveAndPopMenu );
+	done.iFlags |= QMF_NOTIFY;
+	done.SetCoord( 72, 440 );
+
 	AddItem( heading );
-	AddButton( L( "Done" ), nullptr, PC_DONE, VoidCb( &CMenuGameOptions::SaveAndPopMenu ) );
+	AddItem( done );
 
 	AddItem( autoAim );
 	AddItem( crosshair );
