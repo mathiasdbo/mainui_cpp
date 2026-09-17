@@ -90,6 +90,7 @@ Then you can use another oneliner to query all variables:
 #undef XASH_WASM
 #undef XASH_WIN32
 #undef XASH_X86
+#undef XASH_XBOX
 
 //================================================================
 //
@@ -98,6 +99,21 @@ Then you can use another oneliner to query all variables:
 //================================================================
 #if defined _WIN32
 	#define XASH_WIN32 1
+	#if defined NXDK
+		// XM.1 (fork-plan.md), found live tracing why every #if XASH_XBOX
+		// guard in this fork's own menus/*.cpp files silently took the
+		// non-Xbox branch: mainui builds against ITS OWN sdk_includes copy
+		// of build.h (tools/xbox-mainui-sweep.sh's include path never
+		// reaches 3rdparty/library_suffix/include, where the real engine
+		// header - and this exact patch, patches/library_suffix-xbox-
+		// subplatform.patch - already lives), so mainui never inherited
+		// the engine's own XASH_XBOX detection at all. Same condition as
+		// that patch: nxdk targets i386-pc-win32 (_WIN32 is genuinely
+		// defined) and defines NXDK itself, so this is a sub-platform of
+		// XASH_WIN32, not its own branch - mirroring XASH_ANDROID nesting
+		// inside XASH_LINUX below.
+		#define XASH_XBOX 1
+	#endif
 #elif defined __WATCOMC__ && defined __DOS__
 	#define XASH_DOS4GW 1
 #elif defined __psp__
