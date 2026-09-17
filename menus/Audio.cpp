@@ -158,29 +158,36 @@ void CMenuAudio::_Init( void )
 	heading.SetCharSize( QM_BIGFONT );
 	heading.SetRect( 72, 200, 400, 32 );
 
+	// Codex review round 1: CMenuSlider draws its own label ABOVE its
+	// SetCoord y (Slider.cpp's textHeight = y - charHeight*1.5, ~39px
+	// for the medium font this uses) - a slider at y=260 puts its label
+	// at ~221, inside the heading's own 200-232 span. Stock Audio.cpp's
+	// own first slider sits at y=280 with nothing above it; reusing that
+	// exact value gives the label ~241, clear of the heading below it,
+	// rather than inventing a new offset.
 	soundVolume.szName = L( "GameUI_SoundEffectVolume" );
 	soundVolume.Setup( 0.0, 1.0, 0.05f );
 	soundVolume.onChanged = CMenuEditable::WriteCvarCb;
-	soundVolume.SetCoord( 72, 260 );
+	soundVolume.SetCoord( 72, 280 );
 	soundVolume.size.w = 300;
 
 	musicVolume.szName = L( "GameUI_MP3Volume" );
 	musicVolume.Setup( 0.0, 1.0, 0.05f );
 	musicVolume.onChanged = CMenuEditable::WriteCvarCb;
-	musicVolume.SetCoord( 72, 320 );
+	musicVolume.SetCoord( 72, 340 );
 	musicVolume.size.w = 300;
 
 	suitVolume.szName = L( "GameUI_HEVSuitVolume" );
 	suitVolume.Setup( 0.0, 1.0, 0.05f );
 	suitVolume.onChanged = CMenuEditable::WriteCvarCb;
-	suitVolume.SetCoord( 72, 380 );
+	suitVolume.SetCoord( 72, 400 );
 	suitVolume.size.w = 300;
 
 	done.SetNameAndStatus( L( "Done" ), nullptr );
 	done.SetPicture( PC_DONE );
 	done.onReleased = VoidCb( &CMenuAudio::SaveAndPopMenu );
 	done.iFlags |= QMF_NOTIFY;
-	done.SetCoord( 72, 460 );
+	done.SetCoord( 72, 480 );
 
 	AddItem( heading );
 	AddItem( soundVolume );
