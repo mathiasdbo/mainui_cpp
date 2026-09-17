@@ -21,6 +21,25 @@ GNU General Public License for more details.
 #include "utlvector.h"
 
 #define ART_BACKGROUND		"gfx/shell/splash.bmp"
+// XM item 0 step 3 (fork-plan.md), Codex review round 2: PIC_Load/PIC_Free
+// cache and free by the EXACT string the caller passes, not the resolved
+// filename - GL_TextureForName's lookup is a plain string match, done
+// before FS_LoadImage's own extension probing ever runs
+// (ref/soft/r_image.c:587, imagelib's img_main.c). UI_Precache()
+// (BaseMenu.cpp) unconditionally preloads this same splash art under the
+// key "gfx/shell/splash" (no extension) as part of its general icon
+// precache. Loading WON's background under ART_BACKGROUND's own
+// ".bmp"-suffixed key would create a SECOND, separately-cached copy of
+// the identical decoded image - freeing FreeWONBackground()'s copy would
+// then leave UI_Precache()'s copy resident regardless, defeating the
+// whole point of this item's exclusivity fix. Using the exact same key
+// UI_Precache() already uses makes LoadWONBackground()'s PIC_Load a
+// cache hit against that one entry (or, if this runs first, the one
+// entry UI_Precache() then hits) - there is only ever one resident copy,
+// and FreeWONBackground() actually frees it. FileExists() still needs
+// ART_BACKGROUND's real extension - it is a literal filesystem check
+// with no extension-probing of its own.
+#define ART_BACKGROUND_PIC	"gfx/shell/splash"
 
 // Ultimate class that support multiple types of background: fillColor, WON-style, GameUI-style
 class CMenuBackgroundBitmap: public CMenuBitmap

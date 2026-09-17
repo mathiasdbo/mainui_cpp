@@ -288,15 +288,20 @@ bool CMenuBackgroundBitmap::LoadSteamBackground( bool gamedirOnly )
 	while(( pfile = EngFuncs::COM_ParseFile( pfile, token, sizeof( token ) )))
 	{
 		bimage_t img;
+		char tileName[sizeof( img.name )];
 
-		if( !EngFuncs::FileExists( token, gamedirOnly ))
+		// XM item 0 step 3 (Codex review round 2): token gets overwritten by
+		// each COM_ParseFile call below, so the filename has to be saved
+		// before parsing the rest of this tile's line - and PIC_Load has to
+		// be the LAST fallible step, right before AddToTail, so a malformed
+		// later field (a missing "scaled" token, a missing coordinate) can
+		// never leave an already-loaded texture that this tile never
+		// actually keeps a name for and the failure-path rollback below can
+		// never reach.
+		Q_strncpy( tileName, token, sizeof( tileName ));
+
+		if( !EngFuncs::FileExists( tileName, gamedirOnly ))
 			goto freefile;
-
-		img.hImage = EngFuncs::PIC_Load( token, PIC_NOFLIP_TGA );
-
-		if( !img.hImage ) goto freefile;
-
-		Q_strncpy( img.name, token, sizeof( img.name ));
 
 		// ignore "scaled" attribute. What does it mean?
 		pfile = EngFuncs::COM_ParseFile( pfile, token, sizeof( token ) );
@@ -310,6 +315,11 @@ bool CMenuBackgroundBitmap::LoadSteamBackground( bool gamedirOnly )
 		if( !pfile ) goto freefile;
 		img.coord.y = atoi( token );
 
+		img.hImage = EngFuncs::PIC_Load( tileName, PIC_NOFLIP_TGA );
+
+		if( !img.hImage ) goto freefile;
+
+		Q_strncpy( img.name, tileName, sizeof( img.name ));
 		img.size.w = EngFuncs::PIC_Width( img.hImage );
 		img.size.h = EngFuncs::PIC_Height( img.hImage );
 
@@ -339,7 +349,7 @@ bool CMenuBackgroundBitmap::LoadWONBackground( bool gamedirOnly )
 	{
 		bimage_t img;
 
-		img.hImage = EngFuncs::PIC_Load( ART_BACKGROUND );
+		img.hImage = EngFuncs::PIC_Load( ART_BACKGROUND_PIC );
 
 		if( !img.hImage )
 			return false;
@@ -347,7 +357,7 @@ bool CMenuBackgroundBitmap::LoadWONBackground( bool gamedirOnly )
 		img.coord.x = img.coord.y = 0;
 		img.size.w = EngFuncs::PIC_Width( img.hImage );
 		img.size.h = EngFuncs::PIC_Height( img.hImage );
-		Q_strncpy( img.name, ART_BACKGROUND, sizeof( img.name ));
+		Q_strncpy( img.name, ART_BACKGROUND_PIC, sizeof( img.name ));
 		s_WONBackground = img;
 
 		return true;
