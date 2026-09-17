@@ -1209,7 +1209,28 @@ void UI_Init( void )
 
 	gMenu.m_gameinfo = *gi;
 
+#if XASH_XBOX
+	// XM.1 item 13 step 5: every menu row is text on Xbox, never a
+	// button-strip bitmap. This one assignment does both halves - it
+	// routes CMenuPicButton to its text branch (PicButton.cpp:259), and
+	// CBtnsManager::LoadBmpButtons reads the same flag to skip loading
+	// the strip at all (Btns.cpp:42).
+	//
+	// It is what makes the font affordable rather than an addition: the
+	// strip measures 2.656 MiB resident and the four font faces 2.619,
+	// so shipping the font while the strip still loaded would put 5.275
+	// MiB against item 0's 3 MiB ceiling for a profile's whole menu art.
+	// Found in Codex review, which caught the earlier draft claiming the
+	// wash while leaving the strip in. Text and bitmaps are alternatives
+	// here, not layers, and they have to land together.
+	//
+	// Retires the PC_* picture-id question with it: no row borrows a
+	// 1998 button's artwork any more, which is the class of bug
+	// divergence #67 spent three review rounds on.
+	uiStatic.renderPicbuttonText = true;
+#else
 	uiStatic.renderPicbuttonText = gMenu.m_gameinfo.flags & GFL_RENDER_PICBUTTON_TEXT;
+#endif
 
 	// trying to load colors.lst
 	UI_ApplyCustomColors ();
