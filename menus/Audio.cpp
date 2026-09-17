@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "CheckBox.h"
 #include "SpinControl.h"
 #include "StringArrayModel.h"
+#include "Action.h"
 
 #define ART_BANNER			"gfx/shell/head_audio"
 
@@ -39,12 +40,38 @@ private:
 	void _Init() override;
 	void _VidInit() override;
 	void GetConfig();
+#if !XASH_XBOX
 	void VibrateChanged();
+#endif // !XASH_XBOX
 	void SaveAndPopMenu() override;
 
 	CMenuSlider	soundVolume;
 	CMenuSlider	musicVolume;
 	CMenuSlider	suitVolume;
+#if XASH_XBOX
+	// XM.1 (fork-plan.md): DSP has no player-facing meaning on a fixed
+	// console (the earlier draft's "keep DSP" is reversed) and
+	// snd_mute_losefocus doesn't apply either - Xbox has no window to
+	// lose focus to. Vibration moves to Controller (item 5) once it
+	// exists; hiding it here now, before that screen is built, is the
+	// plan's own explicit call (unlike Joystick in Configuration.cpp,
+	// which stays reachable because nothing replaces it yet) - vibration
+	// still defaults on (vibration_enable "1", cl_mobile.c) and just
+	// cannot be turned off until Controller ships, a real but narrow gap
+	// next to losing gamepad-axis configuration entirely.
+	//
+	// The design also calls for a read-only "Speaker output" row from
+	// the Dashboard - deliberately NOT built this pass: nxdk exposes the
+	// setting only as a raw EEPROM value (ExQueryNonVolatileSetting,
+	// XC_AUDIO, xboxkrnl.h:4229), with no documented bit layout anywhere
+	// in this vendored copy or its samples, unlike Display's video
+	// output row (XVideoGetEncoderSettings's named fields, verified
+	// against divergence #64's own PR round 2). Decoding XC_AUDIO
+	// without that would be exactly the "never guess a constant" this
+	// project's own rules forbid.
+	CMenuAction heading;
+	CMenuPicButton done;
+#else
 	CMenuSlider	vibration;
 	CMenuCheckBox noDSP;
 	CMenuCheckBox useAlphaDSP;
@@ -52,6 +79,7 @@ private:
 	CMenuCheckBox vibrationEnable;
 
 	float oldVibrate;
+#endif // XASH_XBOX
 };
 
 /*
@@ -64,6 +92,8 @@ void CMenuAudio::GetConfig( void )
 	soundVolume.LinkCvar( "volume" );
 	musicVolume.LinkCvar( "MP3Volume" );
 	suitVolume.LinkCvar( "suitvolume" );
+
+#if !XASH_XBOX
 	vibration.LinkCvar( "vibration_length" );
 
 	noDSP.LinkCvar( "room_off" );
@@ -74,8 +104,10 @@ void CMenuAudio::GetConfig( void )
 	if( !vibrationEnable.bChecked )
 		vibration.SetGrayed( true );
 	oldVibrate = vibration.GetCurrentValue();
+#endif // !XASH_XBOX
 }
 
+#if !XASH_XBOX
 void CMenuAudio::VibrateChanged()
 {
 	float newVibrate = vibration.GetCurrentValue();
@@ -88,6 +120,7 @@ void CMenuAudio::VibrateChanged()
 		oldVibrate = newVibrate;
 	}
 }
+#endif // !XASH_XBOX
 
 /*
 =================
@@ -99,11 +132,13 @@ void CMenuAudio::SaveAndPopMenu()
 	soundVolume.WriteCvar();
 	musicVolume.WriteCvar();
 	suitVolume.WriteCvar();
+#if !XASH_XBOX
 	vibration.WriteCvar();
 	noDSP.WriteCvar();
 	useAlphaDSP.WriteCvar();
 	muteFocusLost.WriteCvar();
 	vibrationEnable.WriteCvar();
+#endif // !XASH_XBOX
 
 	CMenuFramework::SaveAndPopMenu();
 }
@@ -113,6 +148,47 @@ void CMenuAudio::SaveAndPopMenu()
 CMenuAudio::Init
 =================
 */
+#if XASH_XBOX
+void CMenuAudio::_Init( void )
+{
+	// XM.1: text heading in place of a head_*.bmp banner.
+	heading.iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
+	heading.szName = L( "GameUI_Audio" );
+	heading.colorBase = uiColorHelp;
+	heading.SetCharSize( QM_BIGFONT );
+	heading.SetRect( 72, 200, 400, 32 );
+
+	soundVolume.szName = L( "GameUI_SoundEffectVolume" );
+	soundVolume.Setup( 0.0, 1.0, 0.05f );
+	soundVolume.onChanged = CMenuEditable::WriteCvarCb;
+	soundVolume.SetCoord( 72, 260 );
+	soundVolume.size.w = 300;
+
+	musicVolume.szName = L( "GameUI_MP3Volume" );
+	musicVolume.Setup( 0.0, 1.0, 0.05f );
+	musicVolume.onChanged = CMenuEditable::WriteCvarCb;
+	musicVolume.SetCoord( 72, 320 );
+	musicVolume.size.w = 300;
+
+	suitVolume.szName = L( "GameUI_HEVSuitVolume" );
+	suitVolume.Setup( 0.0, 1.0, 0.05f );
+	suitVolume.onChanged = CMenuEditable::WriteCvarCb;
+	suitVolume.SetCoord( 72, 380 );
+	suitVolume.size.w = 300;
+
+	done.SetNameAndStatus( L( "Done" ), nullptr );
+	done.SetPicture( PC_DONE );
+	done.onReleased = VoidCb( &CMenuAudio::SaveAndPopMenu );
+	done.iFlags |= QMF_NOTIFY;
+	done.SetCoord( 72, 460 );
+
+	AddItem( heading );
+	AddItem( soundVolume );
+	AddItem( musicVolume );
+	AddItem( suitVolume );
+	AddItem( done );
+}
+#else
 void CMenuAudio::_Init( void )
 {
 	banner.SetPicture(ART_BANNER);
@@ -170,6 +246,7 @@ void CMenuAudio::_Init( void )
 	AddItem( vibrationEnable );
 	AddItem( vibration );
 }
+#endif // XASH_XBOX
 
 void CMenuAudio::_VidInit( )
 {
