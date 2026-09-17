@@ -38,6 +38,15 @@ public:
 
 	// update dialog
 	CMenuYesNoMessageBox msgBox;
+#if XASH_XBOX
+	// XM.1 item 4: no WON strip picture actually means "Game" (see the
+	// _Init() comment at the button's construction) - a plain member built
+	// without ever calling SetPicture(), so hPic/button_id stay at their
+	// PicButton() constructor defaults (0/-1) and PicButton.cpp:259's
+	// `if( hPic && ... )` always takes the text branch, independent of how
+	// many entries any current or future button strip bitmap supplies.
+	CMenuPicButton game;
+#endif // XASH_XBOX
 };
 
 /*
@@ -75,17 +84,30 @@ void CMenuOptions::_Init( void )
 	// with a screen that does not exist yet. "Game" has no such
 	// dependency - GameOptions.cpp is already reshaped for Xbox.
 	//
-	// Codex review, post-merge: PC_ADV_OPT's real ordinal is 60 (Btns.h,
-	// counted from PC_NEW_GAME=0), not 84 as first documented - inside
-	// the WON strip's populated 0-61 range (pic_count=62, Btns.cpp:59),
-	// not past it. CreateGame.cpp:227 and PlayerSetup.cpp:561 already use
-	// it for their own "Adv. Options" buttons, so its bitmap draws that
-	// exact baked-in text - a real mismatch against this row's "Game"
-	// label. PC_ADV_OPT2 is unused anywhere in this codebase and its
-	// ordinal (68) is past pic_count, so it always falls to the text
-	// path (PicButton.cpp:259) - the guarantee this row actually needs.
-	AddButton( L( "Game" ), L( "Auto-aim, crosshair, weapon switching" ),
-		PC_ADV_OPT2, UI_GameOptions_Menu, QMF_NOTIFY );
+	// Codex review, post-merge, round 2: no WON strip picture ever means
+	// "Game", so this can't reuse any EDefaultBtns id - not PC_ADV_OPT
+	// (ordinal 60, inside the strip's populated 0-61 range, so it drew
+	// the "Adv. Options" bitmap CreateGame.cpp/PlayerSetup.cpp already
+	// use it for), and not PC_ADV_OPT2 either (round 1's fix: ordinal 68,
+	// unpopulated only because today's strip stops at 62 - a future or
+	// modded strip reaching that far would recreate the same mismatch,
+	// since Btns.cpp:59's pic_count is measured from the loaded bitmap,
+	// not a fixed constant). AddButton()'s EDefaultBtns overload always
+	// calls SetPicture(), which sets hPic whenever the strip covers that
+	// id - there's no id that is guaranteed unpopulated forever. The
+	// `game` member below is built without calling SetPicture() at all,
+	// so hPic stays 0 (the constructor default) regardless of strip size,
+	// matching AddButton()'s own y-position formula (230 + m_iBtnsNum*50)
+	// by hand since it never runs through AddButton() to get one.
+	game.SetNameAndStatus( L( "Game" ), L( "Auto-aim, crosshair, weapon switching" ) );
+	game.onReleased = UI_GameOptions_Menu;
+	game.iFlags |= QMF_NOTIFY;
+	game.SetCoord( 72, 230 + m_iBtnsNum * 50 );
+	AddItem( game );
+	// AddButton() below still auto-positions from m_iBtnsNum - bump it by
+	// hand since `game` never went through AddButton() to do that itself,
+	// or Done would land on the same y as Game just above it.
+	m_iBtnsNum++;
 #else
 	AddButton( L( "Update" ), L( "Check for updates" ),
 		PC_UPDATE, msgBox.MakeOpenEvent(), QMF_NOTIFY );
