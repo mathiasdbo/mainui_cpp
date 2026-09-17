@@ -38,15 +38,6 @@ public:
 
 	// update dialog
 	CMenuYesNoMessageBox msgBox;
-#if XASH_XBOX
-	// XM.1 item 4: no WON strip picture actually means "Game" (see the
-	// _Init() comment at the button's construction) - a plain member built
-	// without ever calling SetPicture(), so hPic/button_id stay at their
-	// PicButton() constructor defaults (0/-1) and PicButton.cpp:259's
-	// `if( hPic && ... )` always takes the text branch, independent of how
-	// many entries any current or future button strip bitmap supplies.
-	CMenuPicButton game;
-#endif // XASH_XBOX
 };
 
 /*
@@ -94,20 +85,28 @@ void CMenuOptions::_Init( void )
 	// since Btns.cpp:59's pic_count is measured from the loaded bitmap,
 	// not a fixed constant). AddButton()'s EDefaultBtns overload always
 	// calls SetPicture(), which sets hPic whenever the strip covers that
-	// id - there's no id that is guaranteed unpopulated forever. The
-	// `game` member below is built without calling SetPicture() at all,
-	// so hPic stays 0 (the constructor default) regardless of strip size,
-	// matching AddButton()'s own y-position formula (230 + m_iBtnsNum*50)
-	// by hand since it never runs through AddButton() to get one.
-	game.SetNameAndStatus( L( "Game" ), L( "Auto-aim, crosshair, weapon switching" ) );
-	game.onReleased = UI_GameOptions_Menu;
-	game.iFlags |= QMF_NOTIFY;
-	game.SetCoord( 72, 230 + m_iBtnsNum * 50 );
-	AddItem( game );
-	// AddButton() below still auto-positions from m_iBtnsNum - bump it by
-	// hand since `game` never went through AddButton() to do that itself,
-	// or Done would land on the same y as Game just above it.
-	m_iBtnsNum++;
+	// id - there's no id that is guaranteed unpopulated forever.
+	//
+	// round 3: a plain class member built the same way but without ever
+	// calling SetPicture() fixed the picture, but broke shutdown - it
+	// never went into m_apBtns, so ~CMenuFramework() (Framework.cpp:31-38)
+	// dereferenced a null slot there for it while destroying every OTHER
+	// button it owns. This is that same construction (heap-allocated,
+	// stored in m_apBtns, m_iBtnsNum incremented atomically with the
+	// store - AddButton()'s own contract, Framework.cpp:106-126), with
+	// the SetPicture() call simply left out so hPic/button_id stay at
+	// PicButton()'s own constructor defaults (0/-1) and
+	// PicButton.cpp:259's `if( hPic && ... )` always takes the text
+	// branch, independent of any strip's size.
+	{
+		CMenuPicButton *game = new CMenuPicButton();
+		game->SetNameAndStatus( L( "Game" ), L( "Auto-aim, crosshair, weapon switching" ) );
+		game->onReleased = UI_GameOptions_Menu;
+		game->iFlags |= QMF_NOTIFY;
+		game->SetCoord( 72, 230 + m_iBtnsNum * 50 );
+		AddItem( *game );
+		m_apBtns[m_iBtnsNum++] = game;
+	}
 #else
 	AddButton( L( "Update" ), L( "Check for updates" ),
 		PC_UPDATE, msgBox.MakeOpenEvent(), QMF_NOTIFY );
