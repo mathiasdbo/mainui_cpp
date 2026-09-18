@@ -310,9 +310,24 @@ void CMenuSavesListModel::Update( void )
 		else
 		{
 			// strip whitespace from the end of string
-			for( size_t len = strlen( title ) - 1; len >= 0; len-- )
+			//
+			// XM.1 (this fork): len was size_t, so an empty title
+			// underflowed strlen(title)-1 to SIZE_MAX - "len >= 0" is
+			// then always true for an unsigned type, so the loop reads
+			// title[] backwards from far out of bounds until something
+			// crashes or hangs, rather than doing nothing as an empty
+			// string should. title is empty whenever a save's own
+			// comment (SV_GetSaveComment) is itself an empty string
+			// with no leading '[' - found while investigating a report
+			// of Load Game/Save Game freezing open in xemu on a build
+			// with real saves; this is a genuine, pre-existing bug
+			// (upstream, 2024, `git blame`) matching that symptom, not
+			// yet confirmed as the specific cause on the reporter's own
+			// save data. A signed length makes an empty title a no-op
+			// loop instead, which is correct regardless.
+			for( int len = (int)strlen( title ) - 1; len >= 0; len-- )
 			{
-				if( !isspace( title[len] ))
+				if( !isspace( (unsigned char)title[len] ))
 					break;
 
 				title[len] = '\0';
