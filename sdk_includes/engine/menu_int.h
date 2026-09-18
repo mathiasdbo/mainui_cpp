@@ -179,14 +179,6 @@ typedef struct ui_enginefuncs_s
 	const char *(*pfnGetModeString)( int vid_mode );
 	int	(*COM_SaveFile)( const char *filename, const void *data, int len );
 	int	(*COM_RemoveFile)( const char *filepath );
-
-	// XM.1 item 7: a read-only "Video output" row on the Xbox Display
-	// screen needs real hardware state, not a literal string. Xbox-only
-	// on the mainui side (every other platform has its own real
-	// resolution/windowed UI already); the engine-side implementation
-	// still exists on every platform so this struct's initializer stays
-	// complete (see UI_GetVideoInfo, vid_common.c).
-	void	(*pfnGetVideoInfo)( int *width, int *height, int *refresh, int *widescreen, int *letterbox );
 } ui_enginefuncs_t;
 
 typedef struct
