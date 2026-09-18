@@ -18,6 +18,12 @@ GNU General Public License for more details.
 #include "Legend.h"
 #include "Utils.h"
 
+// Guard placed after the includes, matching Legend.h's own reasoning
+// and Pause.cpp's - XASH_XBOX only resolves once build.h has been
+// reached transitively. Legend.h's own body is entirely inside the same
+// guard, so this file has nothing to compile without it anyway.
+#if XASH_XBOX
+
 // XM.1 item 12: the canvas's own exact values for the four face buttons
 // (fork-plan.md, item 13's font-size audit) - these are fixed hardware-
 // button colours, not a re-themeable UI role like uiColorLegend above,
@@ -73,15 +79,16 @@ void CMenuLegend::Add( ELegendGlyph glyph, const char *verb )
 
 	m_entries[m_iCount].glyph = glyph;
 	m_entries[m_iCount].verb = verb;
+	m_entries[m_iCount].visible = true;
 	m_iCount++;
 }
 
-void CMenuLegend::SetVerb( int index, const char *verb )
+void CMenuLegend::SetVisible( int index, bool visible )
 {
 	if( index < 0 || index >= m_iCount )
 		return;
 
-	m_entries[index].verb = verb;
+	m_entries[index].visible = visible;
 }
 
 /*
@@ -109,6 +116,9 @@ void CMenuLegend::Draw( void )
 
 	for( i = 0; i < m_iCount; i++ )
 	{
+		if( !m_entries[i].visible )
+			continue;
+
 		int x = m_scPos.x + i * slotWidth;
 		int y = m_scPos.y;
 		int glyphWidth = glyphSize;
@@ -157,3 +167,5 @@ void CMenuLegend::Draw( void )
 		UI_DrawString( font, textX, y, slotWidth - glyphWidth, glyphSize, m_entries[i].verb, colorBase, m_scChSize, QM_LEFT | QM_TOP );
 	}
 }
+
+#endif // XASH_XBOX
