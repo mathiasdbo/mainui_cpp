@@ -25,6 +25,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "CheckBox.h"
 #include "YesNoMessageBox.h"
 #include "Action.h"
+#if XASH_XBOX
+#include "Legend.h"
+#endif
 
 #define ART_BANNER	  	"gfx/shell/head_vidoptions"
 #define ART_GAMMA		"gfx/shell/gamma"
@@ -69,6 +72,10 @@ public:
 	CMenuAction	videoOutput;
 	char		videoOutputText[64];
 	CMenuPicButton	done;
+	// XM.1 item 12: A Select / B Back / D-pad Adjust - both sliders above
+	// are D-pad-adjustable (Slider.cpp, Utils.h's IsLeftArrow/IsRightArrow
+	// already recognize K_DPAD_LEFT/RIGHT directly).
+	CMenuLegend legend;
 #else
 	CMenuPicButton	done;
 #if LEGACY_VIEWSIZE
@@ -266,6 +273,11 @@ void CMenuVidOptions::_Init( void )
 	done.iFlags |= QMF_NOTIFY;
 	done.SetCoord( 72, 510 );
 
+	legend.SetRealCoord( 72, 438 );
+	legend.Add( LEGEND_A, L( "Select" ) );
+	legend.Add( LEGEND_B, L( "Back" ) );
+	legend.Add( LEGEND_DPAD, L( "Adjust" ) );
+
 	AddItem( heading );
 	AddItem( gammaIntensity );
 	AddItem( brightness );
@@ -273,6 +285,7 @@ void CMenuVidOptions::_Init( void )
 	AddItem( videoOutput );
 	AddItem( done );
 	AddItem( testImage );
+	AddItem( legend );
 
 	gammaIntensity.LinkCvar( "gamma" );
 	brightness.LinkCvar( "brightness" );

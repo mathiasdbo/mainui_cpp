@@ -28,6 +28,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "MenuStrings.h"
 #include "PlayerIntroduceDialog.h"
 #include "gameinfo.h"
+#if XASH_XBOX
+#include "Legend.h"
+#endif
 #include "AnimatedBanner.h"
 #include "MovieBanner.h"
 
@@ -91,6 +94,13 @@ private:
 
 	// quit dialog / hazard-course restart confirmation
 	CMenuYesNoMessageBox dialog;
+
+#if XASH_XBOX
+	// XM.1 item 12: A Select / B Back is the plan's own generic baseline
+	// ("A Select / B Back everywhere") - Main has no X/Y or D-pad-adjusted
+	// row of its own.
+	CMenuLegend legend;
+#endif
 
 	bool bTrainMap;
 #if !XASH_XBOX
@@ -373,6 +383,17 @@ void CMenuMain::_Init( void )
 	AddItem( minimizeBtn );
 	AddItem( quitButton );
 #endif // !XASH_XBOX
+
+#if XASH_XBOX
+	legend.SetRealCoord( 72, 438 );
+	// No compiled-in GameUI_Select/GameUI_Back key exists (checked, not
+	// guessed) - item 13's own idiom instead: the literal English word as
+	// the key, safe on a miss (L() returns its argument unchanged),
+	// translatable via mainui_<lang>.txt.
+	legend.Add( LEGEND_A, L( "Select" ) );
+	legend.Add( LEGEND_B, L( "Back" ) );
+	AddItem( legend );
+#endif
 }
 
 /*

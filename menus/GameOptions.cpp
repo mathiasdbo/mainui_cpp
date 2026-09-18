@@ -25,6 +25,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "SpinControl.h"
 #include "Action.h"
 #include "CheckBox.h"
+#if XASH_XBOX
+#include "Legend.h"
+#endif
 
 #define ART_BANNER			"gfx/shell/head_advoptions"
 
@@ -59,6 +62,9 @@ private:
 	CMenuAction heading;
 	CMenuCheckBox autoAim, crosshair, fastSwitch;
 	CMenuPicButton done;
+	// XM.1 item 12: A Select / B Back - all three rows above are
+	// checkboxes, toggled with A, not D-pad-adjustable.
+	CMenuLegend legend;
 #else
 	CMenuSpinControl	maxFPS;
 	//CMenuCheckBox	hand;
@@ -182,16 +188,22 @@ void CMenuGameOptions::_Init( void )
 	done.iFlags |= QMF_NOTIFY;
 	done.SetCoord( 72, 440 );
 
+	legend.SetRealCoord( 72, 438 );
+	legend.Add( LEGEND_A, L( "Select" ) );
+	legend.Add( LEGEND_B, L( "Back" ) );
+
 	// Codex review round 2: registration order IS pad focus order
 	// (ItemsHolder.cpp), independent of on-screen position - same class
 	// of bug divergence #66 already found in Main.cpp. Done is visually
-	// last (y=440, below all three checkboxes), so it is registered
-	// last too.
+	// last among the focusable rows, so it is registered last too; the
+	// legend itself is QMF_INACTIVE (never focusable) and its own
+	// registration position is irrelevant to this ordering.
 	AddItem( heading );
 	AddItem( autoAim );
 	AddItem( crosshair );
 	AddItem( fastSwitch );
 	AddItem( done );
+	AddItem( legend );
 }
 #else
 void CMenuGameOptions::_Init( void )

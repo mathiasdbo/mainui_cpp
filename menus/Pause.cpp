@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "PicButton.h"
 #include "Action.h"
 #include "YesNoMessageBox.h"
+#include "Legend.h"
 
 // XM.1 item 10 (fork-plan.md): a new screen, not a reshape of an existing
 // one - there is no stock "in-game pause menu" file in mainui to diverge
@@ -118,6 +119,12 @@ public:
 	CMenuPicButton options;
 	CMenuPicButton quit;
 	CMenuYesNoMessageBox quitConfirm;
+
+	// XM.1 item 12: "A Select / B Resume / START Resume" - the plan's own
+	// explicit legend for this screen. B and START share the same verb
+	// since both close this screen the same way (KeyDown's own inherited
+	// Escape/B handling, and this screen's own K_START_BUTTON override).
+	CMenuLegend legend;
 };
 
 /*
@@ -280,6 +287,11 @@ void CMenuPause::_Init( void )
 	quit.iFlags |= QMF_NOTIFY;
 	quit.SetCoord( 72, 510 );
 
+	legend.SetRealCoord( 72, 438 );
+	legend.Add( LEGEND_A, L( "Select" ) );
+	legend.Add( LEGEND_B, L( "Resume" ) );
+	legend.Add( LEGEND_START, L( "Resume" ) );
+
 	AddItem( heading );
 	AddItem( chapterTitle );
 	AddItem( difficulty );
@@ -288,6 +300,7 @@ void CMenuPause::_Init( void )
 	AddItem( loadGame );
 	AddItem( options );
 	AddItem( quit );
+	AddItem( legend );
 }
 
 void CMenuPause::_VidInit( void )
