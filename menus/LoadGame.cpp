@@ -153,6 +153,16 @@ public:
 
 private:
 	void _Init( void );
+#if XASH_XBOX
+	// Codex review (round 1, item 12): X (Delete) only does anything
+	// while savesList itself has focus (CMenuTable::KeyDown, Table.cpp) -
+	// showing the legend's own X entry unconditionally claimed a
+	// screen-wide action that depends on which control is actually
+	// focused. Polls that once per frame instead of hooking every place
+	// focus can change (mouse move, D-pad, Tab) - this row is decorative
+	// chrome, not something a one-frame-late toggle can visibly break.
+	void Think( void ) override;
+#endif
 
 	void LoadGame();
 	void SaveGame();
@@ -385,9 +395,13 @@ void CMenuLoadGame::_Init( void )
 
 #if XASH_XBOX
 	legend.SetRealCoord( 72, 438 );
-	// A's verb corrected by SetSaveMode() below to match whichever mode
-	// is actually active - "Load" here is just the entry's initial value.
-	legend.Add( LEGEND_A, L( "GameUI_Load" ) );
+	// Codex review (round 1): "A Load"/"A Save" over-claimed a
+	// screen-wide action - A activates whichever control has focus
+	// (ItemsHolder.cpp), which can just as easily be Delete or Cancel.
+	// "Select" is the same generic verb every other screen's legend
+	// already uses for exactly this, mode-agnostic so SetSaveMode() no
+	// longer needs to correct it.
+	legend.Add( LEGEND_A, L( "Select" ) );
 	legend.Add( LEGEND_X, L( "Delete" ) );
 	legend.Add( LEGEND_B, L( "Back" ) );
 	AddItem( legend );
@@ -473,14 +487,28 @@ void CMenuLoadGame::SetSaveMode( bool saveMode )
 		load.SetVisibility( true );
 		szName = "CMenuLoadGame";
 	}
+}
 
 #if XASH_XBOX
-	// XM.1 item 12: the legend's A entry (index 0, the first Add() call
-	// in _Init()) has to track whichever mode is actually active - one
-	// screen instance serves both, toggled here same as the buttons above.
-	legend.SetVerb( 0, saveMode ? L( "GameUI_Save" ) : L( "GameUI_Load" ) );
-#endif
+/*
+=================
+CMenuLoadGame::Think
+
+Codex review (round 1, item 12): the legend's own X (Delete) entry only
+describes a real action while savesList itself has the pad focus -
+CMenuTable::KeyDown is the only place X does anything on this screen
+(Table.cpp), so showing it while Load/Save/Cancel is focused claimed a
+screen-wide action that was not actually reachable from there. Index 1
+is the second Add() call in _Init() (A, X, B in that order).
+=================
+*/
+void CMenuLoadGame::Think( void )
+{
+	CMenuFramework::Think();
+
+	legend.SetVisible( 1, ItemAtCursor() == &savesList );
 }
+#endif
 
 static CMenuLoadGame *menu_loadgame = NULL;
 

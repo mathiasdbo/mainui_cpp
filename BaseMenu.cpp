@@ -64,11 +64,14 @@ unsigned int uiColorHelp        = 0xFFA0A0A0; // 160, 160, 160, 255 // hint lett
 // exactly as already shipped and screenshotted, not silently change -
 // the amber is content (assets/gfx/shell/colors.lst), not a code default.
 unsigned int uiColorHeading     = 0xFFA0A0A0; // matches uiColorHelp until colors.lst overrides it
+#if XASH_XBOX
 // #cfc6b6 - the exact value the canvas gives for legend verb text, not
 // a stand-in default (unlike uiColorHeading above): assets/gfx/shell/
 // colors.lst can still override it, but a disc without one already
-// matches the design.
+// matches the design. Guarded (BaseMenu.h's own comment on the extern) -
+// CMenuLegend is the only reader anywhere in the tree.
 unsigned int uiColorLegend      = 0xFFCFC6B6; // 207, 198, 182, 255 // legend verb text colour
+#endif
 unsigned int uiPromptBgColor    = 0xFF383838; // 56,  56,  56,  255 // dialog background color
 unsigned int uiPromptTextColor  = 0xFFF0B418; // 240, 180, 24,  255 // dialog or button letters color
 unsigned int uiPromptFocusColor = 0xFFFFFF00; // 255, 255,  0,  255 // dialog or button focus letters color
@@ -1007,10 +1010,12 @@ void UI_ApplyCustomColors( void )
 		{
 			UI_ParseColor( pfile, &uiColorHeading );
 		}
+#if XASH_XBOX
 		else if( !stricmp( token, "LEGEND_COLOR" ))
 		{
 			UI_ParseColor( pfile, &uiColorLegend );
 		}
+#endif
 		else if( !stricmp( token, "PROMPT_BG_COLOR" ))
 		{
 			UI_ParseColor( pfile, &uiPromptBgColor );

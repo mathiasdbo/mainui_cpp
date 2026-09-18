@@ -17,6 +17,17 @@ GNU General Public License for more details.
 
 #include "BaseItem.h"
 
+// Codex review (round 1): every controls/*.cpp file is globbed
+// unconditionally by both build systems (wscript, CMakeLists.txt), so
+// without this guard the whole class would compile - inertly, but
+// compile - on every platform, contradicting the plan's own "Xbox
+// only" framing for this item. The guard has to come AFTER the include
+// above, not before it, for the same reason Pause.cpp's own header
+// comment already documents: XASH_XBOX is defined via build.h, reached
+// transitively through BaseItem.h/BaseMenu.h, not a compiler -D flag
+// available before any #include runs.
+#if XASH_XBOX
+
 // XM.1 item 12 (fork-plan.md): "one shared control every screen draws
 // from its own list of (glyph, verb) pairs" - A/B/X/Y as filled discs
 // in the pad colours, the D-pad as an outline, START as its own glyph
@@ -65,11 +76,17 @@ public:
 	// share the same five-glyph vocabulary and no screen needs more.
 	void Add( ELegendGlyph glyph, const char *verb );
 
-	// Updates an already-added entry's verb text in place, by the order
-	// Add() was called in - LoadGame.cpp's own SetSaveMode() needs this:
-	// the A glyph's verb is "Load" or "Save" depending on a mode chosen
-	// after _Init() already built this row once.
-	void SetVerb( int index, const char *verb );
+	// Shows or hides an already-added entry, by the order Add() was
+	// called in, without changing the slot layout of the entries after
+	// it (Draw() always advances a fixed slot per registered entry,
+	// hidden or not - a fixed row position matters more here than
+	// reflowing around a hidden one). Codex review (round 1): LoadGame's
+	// own X (Delete) only does anything while its saves table has focus
+	// (CMenuTable::KeyDown, Table.cpp) - showing it unconditionally
+	// claimed a screen-wide action that depends on which control is
+	// actually focused. LoadGame.cpp's own Think() override toggles this
+	// per frame against ItemAtCursor().
+	void SetVisible( int index, bool visible );
 
 	static const int MAX_ENTRIES = 5;
 
@@ -86,6 +103,7 @@ private:
 	{
 		ELegendGlyph glyph;
 		const char *verb;
+		bool visible;
 	};
 
 	legend_entry_t m_entries[MAX_ENTRIES];
@@ -97,5 +115,7 @@ private:
 	// mutating pos.x/y in place would drift further off target each time.
 	int m_iRealX, m_iRealY;
 };
+
+#endif // XASH_XBOX
 
 #endif // MENU_LEGEND_H

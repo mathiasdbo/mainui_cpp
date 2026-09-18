@@ -148,13 +148,19 @@ extern unsigned int	uiColorHelp;
 // both match the canvas through uiColorHelp alone. This is the one
 // distinction the plan calls out as necessary rather than a nudge.
 extern unsigned int	uiColorHeading;
+#if XASH_XBOX
 // XM.1 item 12: the legend row's own verb text colour - the canvas gives
 // an exact value (#cfc6b6) rather than reusing an existing role, unlike
 // HEADING_COLOR above (which had none, and falls back to uiColorHelp).
 // Still colors.lst-overridable, for the same reason every other themed
 // role here is: a disc/skin without a colors.lst present degrades to
-// this literal default rather than failing to parse.
+// this literal default rather than failing to parse. Guarded, unlike
+// uiColorHeading above - Codex review (round 1) pointed out that
+// CMenuLegend itself is the only reader of this value anywhere in the
+// tree, so an unconditional global here would just be dead PC-side
+// state with nothing to read it, not a shared role like HEADING_COLOR.
 extern unsigned int	uiColorLegend;
+#endif
 extern unsigned int	uiPromptBgColor;
 extern unsigned int	uiPromptTextColor;
 extern unsigned int	uiPromptFocusColor;
