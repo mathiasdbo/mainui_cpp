@@ -25,6 +25,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "utlvector.h"
 #include "utlstring.h"
 
+// XM.1 item 9 (fork-plan.md): a PC-multiplayer server details screen,
+// hidden until XN - Codex review found this file's own registration
+// still console-reachable after the item's first pass only guarded
+// button/API callers, missing that ServerBrowser.cpp (its only caller,
+// itself hidden) has nothing to do with this file's own ADD_MENU.
+// Kept otherwise stock, for the merge diff.
+#if !XASH_XBOX
+
 #define ART_BANNER "gfx/shell/head_multi"
 
 enum
@@ -452,3 +460,5 @@ void CMenuServerInfo::_Init()
 	AddItem( players_list );
 	AddItem( rules_list );
 }
+
+#endif // !XASH_XBOX

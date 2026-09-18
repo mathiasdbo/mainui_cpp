@@ -26,6 +26,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "Field.h"
 #include "PlayerIntroduceDialog.h"
 
+// XM.1 item 9 (fork-plan.md): a multiplayer-only "pick a name before you
+// join" prompt, hidden until XN - its only caller, Multiplayer.cpp's own
+// Show(), is hidden the same way, closing this file's own console
+// command too. Kept otherwise stock, for the merge diff.
+#if !XASH_XBOX
+
 class CMenuPlayerIntroduceDialog : public CMenuYesNoMessageBox
 {
 public:
@@ -111,3 +117,5 @@ void UI_PlayerIntroduceDialog_Show( CMenuBaseWindow *pCaller )
 	menu_playerintroducedialog->pCaller = pCaller;
 	menu_playerintroducedialog->Show();
 }
+
+#endif // !XASH_XBOX
