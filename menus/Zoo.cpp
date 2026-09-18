@@ -22,6 +22,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "Field.h"
 #include "ScrollView.h"
 
+// XM.1 item 9 (fork-plan.md): a debug art-preview screen with no
+// button anywhere in the tree - its only reachability was ever its own
+// console command (ADD_MENU registers one unconditionally), which this
+// guard closes. Kept otherwise stock, for the merge diff.
+#if !XASH_XBOX
+
 class CMenuZoo : public CMenuFramework
 {
 public:
@@ -152,3 +158,5 @@ void CMenuZoo::_VidInit()
 }
 
 ADD_MENU( menu_zoo, CMenuZoo, UI_Zoo_Menu )
+
+#endif // !XASH_XBOX

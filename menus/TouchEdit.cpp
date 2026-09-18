@@ -25,6 +25,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "Framework.h"
 #include "keydefs.h"
 
+// XM.1 item 9 (fork-plan.md): stock PC-only screen, hidden entirely on
+// Xbox - no button or console command reaches it once every caller
+// into this file is guarded the same way. Kept otherwise stock, for
+// the merge diff.
+#if !XASH_XBOX
+
 class CMenuTouchEdit : public CMenuFramework
 {
 public:
@@ -95,3 +101,5 @@ bool CMenuTouchEdit::KeyDown( int key )
 }
 
 ADD_MENU( menu_touchedit, CMenuTouchEdit, UI_TouchEdit_Menu );
+
+#endif // !XASH_XBOX

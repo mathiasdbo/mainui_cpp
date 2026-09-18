@@ -26,6 +26,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "YesNoMessageBox.h"
 #include "keydefs.h"
 
+// XM.1 item 9 (fork-plan.md): stock PC-only screen, hidden entirely on
+// Xbox - Main.cpp's own button into it is already guarded, so hiding
+// this file too closes its own console command as well. Kept otherwise
+// stock, for the merge diff.
+#if !XASH_XBOX
+
 #define ART_BANNER		"gfx/shell/head_custom"
 
 enum
@@ -277,3 +283,5 @@ void CMenuCustomGame::_Init( void )
 }
 
 ADD_MENU( menu_customgame, CMenuCustomGame, UI_CustomGame_Menu )
+
+#endif // !XASH_XBOX

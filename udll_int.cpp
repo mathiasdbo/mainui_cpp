@@ -23,7 +23,19 @@ ui_extendedfuncs_t EngFuncs::textfuncs;
 ui_globalvars_t	*gpGlobals;
 CMenu gMenu;
 
-static UI_FUNCTIONS gFunctionTable = 
+#if XASH_XBOX
+// XM.1 item 9 (fork-plan.md): ServerBrowser.cpp (no networking) and
+// TouchButtons.cpp (no touch) are hidden entirely on Xbox, but
+// gFunctionTable/gExtendedTable below are fixed layouts the engine
+// reads by position - every build has to fill every slot, so these
+// three become no-ops here instead of losing their definitions along
+// with the files that used to provide them.
+void UI_AddServerToList( netadr_t adr, const char *info ) { }
+void UI_MenuResetPing_f( void ) { }
+extern "C" EXPORT void AddTouchButtonToList( const char *name, const char *texture, const char *command, unsigned char *color, int flags ) { }
+#endif // XASH_XBOX
+
+static UI_FUNCTIONS gFunctionTable =
 {
 	UI_VidInit,
 	UI_Init,

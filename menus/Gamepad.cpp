@@ -233,7 +233,12 @@ void CMenuGamePad::_Init( void )
 
 	AddItem( banner );
 	AddButton( L( "Controls" ), nullptr, PC_CONTROLS, UI_Controls_Menu );
+#if !XASH_XBOX
+	// XM.1 item 9 (fork-plan.md): the Original Xbox has no gyroscope -
+	// Gyro.cpp itself is hidden the same way, closing its own console
+	// command too.
 	AddButton( L( "Gyroscope" ), nullptr, PC_GYRO, UI_GamePadGyro_Menu, QMF_NOTIFY, 'g' );
+#endif // !XASH_XBOX
 	AddButton( L( "Done" ), nullptr, PC_DONE, VoidCb( &CMenuGamePad::SaveAndPopMenu ) );	// Обе строки уже встречались ранее !!
 	for( i = 0; i < 6; i++ )
 		AddItem( axisBind[i] );

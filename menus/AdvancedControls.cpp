@@ -26,6 +26,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "CheckBox.h"
 #include "Slider.h"
 
+// XM.1 item 9 (fork-plan.md): hidden on Xbox - its two useful rows
+// (Auto-aim, Crosshair) already moved to Game (item 8), and its
+// remaining mouse-only rows have nothing to bind on a pad. Controls.cpp's
+// own "Adv. Controls" button is guarded the same way, closing both the
+// button and this file's own console command (which also closes the
+// only path into InputDevices.cpp, guarded separately below). Kept
+// otherwise stock, for the merge diff.
+#if !XASH_XBOX
+
 #define ART_BANNER			"gfx/shell/head_advanced"
 
 class CAdvancedControls : public CMenuFramework
@@ -218,3 +227,5 @@ void CAdvancedControls::_VidInit()
 }
 
 ADD_MENU( menu_advcontrols, CAdvancedControls, UI_AdvControls_Menu );
+
+#endif // !XASH_XBOX

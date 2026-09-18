@@ -25,6 +25,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "StringVectorModel.h"
 #include "PicButton.h"
 
+// XM.1 item 9 (fork-plan.md): stock PC-only screen, hidden entirely on
+// Xbox - its only caller was TouchButtons.cpp, itself hidden, so this
+// closes both that path and this file's own console command. Kept
+// otherwise stock, for the merge diff.
+#if !XASH_XBOX
+
 #define ART_BANNER	  	"gfx/shell/head_touchoptions"
 #define ART_GAMMA		"gfx/shell/gamma"
 
@@ -141,3 +147,5 @@ void CMenuFileDialog::_VidInit()
 }
 
 ADD_MENU( menu_filedialog, CMenuFileDialog, UI_FileDialog_Menu );
+
+#endif // !XASH_XBOX
