@@ -27,19 +27,35 @@ GNU General Public License for more details.
 // XM.1 item 12: the canvas's own exact values for the four face buttons -
 // these are fixed hardware-button colours, not a re-themeable UI role
 // like uiColorLegend above, so they are literals here rather than
-// another colors.lst key. Sampled directly from the design canvas
-// itself (docs/r3d/design/xbox menu/Half-Life Xbox Menu.html, rendered
-// headless and read pixel-by-pixel) rather than trusted from an earlier
-// note's own transcription - Y's own value there (#f0a91c) turned out
-// to be wrong, real value #f0c21b confirmed by sampling the same pixel
-// repeatedly across two different legend rows.
+// another colors.lst key.
+//
+// Y corrected a second time, 2026-09-18, back to #f0a91c - and the way
+// it was wrong is the point. The earlier value (#f0c21b) came from
+// rendering the canvas headless and reading a pixel; the artboards'
+// own source says `background: #f0a91c` in plain text, in both of the
+// two that draw a Y at all (Controller's legend chip, the keyboard's
+// keycap badge), and no source anywhere in the canvas or this tree
+// contains #f0c21b. A rendered pixel is the design after a compositor
+// has touched it; the declaration is the design. Corroborated
+// independently by the master controller illustration this fork now
+// bakes its Duke diagram from (assets/resource/XboxDuke.png): its Y
+// button's own most common texel is #f7a318, six levels from #f0a91c
+// and thirty-one from #f0c21b in green alone. A, B and X were read the
+// same way this time and are unchanged, matching the artboards exactly.
 static const unsigned int s_legendFaceColor[4] =
 {
 	0xFF6DBE45, // A - green
 	0xFFD9322D, // B - red
 	0xFF2F79C8, // X - blue
-	0xFFF0C21B, // Y - yellow (corrected from an earlier #f0a91c)
+	0xFFF0A91C, // Y - yellow
 };
+
+// START's pill is chrome rather than a button face: the canvas draws it
+// as a dark fill inside a grey border (`.pb.st`: background #222,
+// border 2px solid #777), not in the legend's own text colour the way
+// the D-pad cross is. Literals for the same reason as the face colours.
+#define LEGEND_START_FILL   0xFF222222
+#define LEGEND_START_BORDER 0xFF777777
 
 static const char *const s_legendFaceLetter[4] = { "A", "B", "X", "Y" };
 
@@ -160,14 +176,49 @@ void CMenuLegend::Draw( void )
 		}
 		case LEGEND_DPAD:
 		{
-			// A filled plus/cross - two overlapping bars, in the legend's
-			// own text colour (the D-pad has no single "Duke colour" the
-			// way the face buttons do).
-			int armWidth = Q_max( 2, (int)( glyphSize * 0.34f ) );
-			int barOffset = ( glyphSize - armWidth ) / 2;
+			// A HOLLOW cross outline, in the legend's own text colour (the
+			// D-pad has no single "Duke colour" the way the face buttons
+			// do). Was a filled plus until 2026-09-18 - two overlapping
+			// bars - which this file's own divergence row already admitted
+			// was an approximation of the canvas's outlined icon, and which
+			// reads on screen as two crossed strokes rather than the icon
+			// the design draws.
+			//
+			// Drawn as the twelve edges of the plus polygon, because
+			// nothing here strokes a path: the canvas's own icon is a 24
+			// unit box whose corners sit at 4, 9, 15 and 20, and filling
+			// the plus and punching a hole in it is not an option either -
+			// what would have to show through is the menu background, an
+			// image this control knows nothing about. Each edge is
+			// lengthened by the line thickness so the corners meet without
+			// a notch.
+			const float u = glyphSize / 24.0f;
+			const int t = Q_max( 1, (int)( 2.0f * u + 0.5f ));
+			const int half = t / 2;
+			const int p4  = (int)(  4.0f * u + 0.5f );
+			const int p9  = (int)(  9.0f * u + 0.5f );
+			const int p15 = (int)( 15.0f * u + 0.5f );
+			const int p20 = (int)( 20.0f * u + 0.5f );
 
-			UI_FillRect( x + barOffset, y, armWidth, glyphSize, colorBase );
-			UI_FillRect( x, y + barOffset, glyphSize, armWidth, colorBase );
+			// Six horizontal edges: top of the top arm, top and bottom of
+			// the right arm, bottom of the bottom arm, bottom and top of
+			// the left arm.
+			UI_FillRect( x + p9  - half, y + p4  - half, p15 - p9  + t, t, colorBase );
+			UI_FillRect( x + p15 - half, y + p9  - half, p20 - p15 + t, t, colorBase );
+			UI_FillRect( x + p15 - half, y + p15 - half, p20 - p15 + t, t, colorBase );
+			UI_FillRect( x + p9  - half, y + p20 - half, p15 - p9  + t, t, colorBase );
+			UI_FillRect( x + p4  - half, y + p15 - half, p9  - p4  + t, t, colorBase );
+			UI_FillRect( x + p4  - half, y + p9  - half, p9  - p4  + t, t, colorBase );
+
+			// Six vertical edges: both sides of the top arm, the right arm's
+			// outer edge, both sides of the bottom arm, the left arm's outer
+			// edge.
+			UI_FillRect( x + p9  - half, y + p4  - half, t, p9  - p4  + t, colorBase );
+			UI_FillRect( x + p15 - half, y + p4  - half, t, p9  - p4  + t, colorBase );
+			UI_FillRect( x + p20 - half, y + p9  - half, t, p15 - p9  + t, colorBase );
+			UI_FillRect( x + p15 - half, y + p15 - half, t, p20 - p15 + t, colorBase );
+			UI_FillRect( x + p9  - half, y + p15 - half, t, p20 - p15 + t, colorBase );
+			UI_FillRect( x + p4  - half, y + p9  - half, t, p15 - p9  + t, colorBase );
 			break;
 		}
 		case LEGEND_START:
@@ -178,7 +229,14 @@ void CMenuLegend::Draw( void )
 			// label needed).
 			glyphWidth = (int)( glyphSize * 1.6f );
 
-			UI_DrawRectangleExt( x, y, glyphWidth, glyphSize, colorBase, Q_max( 1, (int)( 2 * uiStatic.scaleX ) ), QM_TOP | QM_BOTTOM | QM_LEFT | QM_RIGHT );
+			// Filled, then bordered - the canvas draws this pill as a dark
+			// fill inside a grey border, not as a bare outline in the
+			// legend's text colour (which is what this drew until
+			// 2026-09-18). On a black background the fill is nearly
+			// invisible; over the in-game scene the pause screens dim
+			// behind it, it is what keeps the pill reading as a button.
+			UI_FillRect( x, y, glyphWidth, glyphSize, LEGEND_START_FILL );
+			UI_DrawRectangleExt( x, y, glyphWidth, glyphSize, LEGEND_START_BORDER, Q_max( 1, (int)( 2 * uiStatic.scaleX ) ), QM_TOP | QM_BOTTOM | QM_LEFT | QM_RIGHT );
 			break;
 		}
 		}
