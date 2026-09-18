@@ -154,7 +154,11 @@ void CMenuAudio::_Init( void )
 	// XM.1: text heading in place of a head_*.bmp banner.
 	heading.iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
 	heading.szName = L( "GameUI_Audio" );
-	heading.colorBase = uiColorHelp;
+	// XM.1 item 13 step 2: a heading's own colour, not the shared
+	// uiColorHelp every label/status line on this screen also draws with
+	// (the sliders' own names below, the status lines beneath them) -
+	// the two are one colour on stock WON, the design wants two.
+	heading.colorBase = uiColorHeading;
 	heading.SetCharSize( QM_BIGFONT );
 	heading.SetRect( 72, 200, 400, 32 );
 

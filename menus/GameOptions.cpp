@@ -144,7 +144,13 @@ void CMenuGameOptions::_Init( void )
 	// sub-screen heading on Xbox is drawn this way, not loaded as art.
 	heading.iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
 	heading.szName = L( "Game" );
-	heading.colorBase = uiColorHelp;
+	// XM.1 item 13 step 2: a heading's own colour, not the shared
+	// uiColorHelp every checkbox label on this screen also draws with -
+	// see Audio.cpp's own identical fix and BaseMenu.h's uiColorHeading.
+	// Does NOT touch networkMode.colorBase below (the stock, non-Xbox
+	// "Select network mode:" label) - that one is retail's own text and
+	// keeps retail's own colour.
+	heading.colorBase = uiColorHeading;
 	heading.SetCharSize( QM_BIGFONT );
 	heading.SetRect( 72, 200, 400, 32 );
 
