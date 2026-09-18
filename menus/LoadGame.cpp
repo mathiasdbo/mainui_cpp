@@ -25,6 +25,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "Table.h"
 #include "Action.h"
 #include "YesNoMessageBox.h"
+#if XASH_XBOX
+#include "Legend.h"
+#endif
 
 #define ART_BANNER_LOAD "gfx/shell/head_load"
 #define ART_BANNER_SAVE "gfx/shell/head_save"
@@ -170,6 +173,13 @@ private:
 	// prompt dialog
 	CMenuYesNoMessageBox msgBox;
 	CMenuSavesListModel savesListModel;
+
+#if XASH_XBOX
+	// XM.1 item 12: "A Load (Save) / X Delete / B Back" - the plan's own
+	// explicit legend for this screen, the A verb swapped by SetSaveMode
+	// below since one screen instance serves both modes.
+	CMenuLegend legend;
+#endif
 
 	friend class CMenuSavesListModel;
 };
@@ -372,6 +382,16 @@ void CMenuLoadGame::_Init( void )
 	AddItem( cancel );
 	AddItem( levelShot );
 	AddItem( savesList );
+
+#if XASH_XBOX
+	legend.SetRealCoord( 72, 438 );
+	// A's verb corrected by SetSaveMode() below to match whichever mode
+	// is actually active - "Load" here is just the entry's initial value.
+	legend.Add( LEGEND_A, L( "GameUI_Load" ) );
+	legend.Add( LEGEND_X, L( "Delete" ) );
+	legend.Add( LEGEND_B, L( "Back" ) );
+	AddItem( legend );
+#endif
 }
 
 void CMenuLoadGame::LoadGame()
@@ -453,6 +473,13 @@ void CMenuLoadGame::SetSaveMode( bool saveMode )
 		load.SetVisibility( true );
 		szName = "CMenuLoadGame";
 	}
+
+#if XASH_XBOX
+	// XM.1 item 12: the legend's A entry (index 0, the first Add() call
+	// in _Init()) has to track whichever mode is actually active - one
+	// screen instance serves both, toggled here same as the buttons above.
+	legend.SetVerb( 0, saveMode ? L( "GameUI_Save" ) : L( "GameUI_Load" ) );
+#endif
 }
 
 static CMenuLoadGame *menu_loadgame = NULL;

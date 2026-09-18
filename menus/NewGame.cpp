@@ -26,6 +26,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "YesNoMessageBox.h"
 #include "keydefs.h"
 #include "MenuStrings.h"
+#if XASH_XBOX
+#include "Legend.h"
+#endif
 
 #define ART_BANNER		"gfx/shell/head_newgame"
 
@@ -58,6 +61,12 @@ private:
 	CEventCallback hardCallback;
 
 	CMenuCheckBox startDemoChapter;
+
+#if XASH_XBOX
+	// XM.1 item 12: A Select / B Back, the plan's own generic baseline -
+	// this screen has no X/Y or D-pad-adjusted row.
+	CMenuLegend legend;
+#endif
 };
 
 /*
@@ -142,6 +151,12 @@ void CMenuNewGame::_Init( void )
 	msgBox.HighlightChoice( CMenuYesNoMessageBox::HIGHLIGHT_NO );
 	msgBox.Link( this );
 
+#if XASH_XBOX
+	legend.SetRealCoord( 72, 438 );
+	legend.Add( LEGEND_A, L( "Select" ) );
+	legend.Add( LEGEND_B, L( "Back" ) );
+	AddItem( legend );
+#endif
 }
 
 ADD_MENU( menu_newgame, CMenuNewGame, UI_NewGame_Menu );

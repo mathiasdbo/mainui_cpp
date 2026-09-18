@@ -24,6 +24,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "YesNoMessageBox.h"
 #include "keydefs.h"
 #include "TabView.h"
+#if XASH_XBOX
+#include "Legend.h"
+#endif
 
 #define ART_BANNER	     	"gfx/shell/head_config"
 
@@ -38,6 +41,12 @@ public:
 
 	// update dialog
 	CMenuYesNoMessageBox msgBox;
+
+#if XASH_XBOX
+	// XM.1 item 12: A Select / B Back, the plan's own generic baseline -
+	// this screen has no X/Y or D-pad-adjusted row.
+	CMenuLegend legend;
+#endif
 };
 
 /*
@@ -130,6 +139,13 @@ void CMenuOptions::_Init( void )
 #endif // XASH_XBOX
 	AddButton( L( "Done" ), L( "Go back to the Main menu" ),
 		PC_DONE, VoidCb( &CMenuOptions::Hide ), QMF_NOTIFY );
+
+#if XASH_XBOX
+	legend.SetRealCoord( 72, 438 );
+	legend.Add( LEGEND_A, L( "Select" ) );
+	legend.Add( LEGEND_B, L( "Back" ) );
+	AddItem( legend );
+#endif
 }
 
 ADD_MENU( menu_options, CMenuOptions, UI_Options_Menu );

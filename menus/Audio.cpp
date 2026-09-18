@@ -26,6 +26,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "SpinControl.h"
 #include "StringArrayModel.h"
 #include "Action.h"
+#if XASH_XBOX
+#include "Legend.h"
+#endif
 
 #define ART_BANNER			"gfx/shell/head_audio"
 
@@ -71,6 +74,11 @@ private:
 	// project's own rules forbid.
 	CMenuAction heading;
 	CMenuPicButton done;
+	// XM.1 item 12: A Select / B Back / D-pad Adjust - the three volume
+	// sliders above are D-pad-adjustable (Slider.cpp responds to
+	// UI::Key::IsLeftArrow/IsRightArrow, which already recognizes
+	// K_DPAD_LEFT/RIGHT directly, Utils.h).
+	CMenuLegend legend;
 #else
 	CMenuSlider	vibration;
 	CMenuCheckBox noDSP;
@@ -193,11 +201,17 @@ void CMenuAudio::_Init( void )
 	done.iFlags |= QMF_NOTIFY;
 	done.SetCoord( 72, 480 );
 
+	legend.SetRealCoord( 72, 438 );
+	legend.Add( LEGEND_A, L( "Select" ) );
+	legend.Add( LEGEND_B, L( "Back" ) );
+	legend.Add( LEGEND_DPAD, L( "Adjust" ) );
+
 	AddItem( heading );
 	AddItem( soundVolume );
 	AddItem( musicVolume );
 	AddItem( suitVolume );
 	AddItem( done );
+	AddItem( legend );
 }
 #else
 void CMenuAudio::_Init( void )
