@@ -641,7 +641,30 @@ void UI_UpdateMenu( float flTime )
 	if( uiStatic.nextFrameActive )
 	{
 		if( !uiStatic.menu.IsActive() )
+		{
+			// XM.1 item 10 (fork-plan.md): this is the ONE place that
+			// decides what opens whenever the menu system activates fresh
+			// - confirmed by grep, the only other UI_Main_Menu() call
+			// sites are ConnectionProgress.cpp/ConnectionWarning.cpp's own
+			// connect-flow returns (never fire while a live singleplayer
+			// game is running) and YesNoMessageBox.cpp's generic
+			// UI_ShowMessageBox fallback (a rare system-error path, left
+			// alone). So this single branch is both "boot to Main" and
+			// "START/Esc pressed with no menu up while playing" - the
+			// exact hook item 10's own exit criteria names ("START alone
+			// opens the in-game menu... the single-player pause screen").
+			// CL_IsActive() (not raw ClientInGame()) matches Main.cpp's
+			// own primitive for "truly in a live, playable game", not the
+			// animated main-menu background level.
+#if XASH_XBOX
+			if( CL_IsActive() )
+				UI_Pause_Menu();
+			else
+				UI_Main_Menu();
+#else
 			UI_Main_Menu();
+#endif
+		}
 
 		uiStatic.nextFrameActive = false;
 	}

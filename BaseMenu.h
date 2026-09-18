@@ -278,6 +278,9 @@ public:
 
 // Menus
 void UI_Main_Menu( void );
+#if XASH_XBOX
+void UI_Pause_Menu( void ); // XM.1 item 10 - Pause.cpp, new
+#endif
 void UI_NewGame_Menu( void );
 void UI_LoadGame_Menu( void );
 void UI_SaveGame_Menu( void );
