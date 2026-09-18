@@ -487,6 +487,15 @@ public:
 		return engfuncs.COM_RemoveFile( filename );
 	}
 
+	// XM.1 item 7: the Xbox Display screen's read-only "Video output"
+	// row - real hardware state (vid_common.c's own UI_GetVideoInfo),
+	// never a literal. Xbox-only caller; every other platform's build of
+	// this struct still fills the slot (see the engine-side #else there).
+	static inline void GetVideoInfo( int *width, int *height, int *refresh, int *widescreen, int *letterbox )
+	{
+		engfuncs.pfnGetVideoInfo( width, height, refresh, widescreen, letterbox );
+	}
+
 	static ui_enginefuncs_t engfuncs;
 	static ui_extendedfuncs_t textfuncs;
 

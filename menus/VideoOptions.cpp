@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "Slider.h"
 #include "CheckBox.h"
 #include "YesNoMessageBox.h"
+#include "Action.h"
 
 #define ART_BANNER	  	"gfx/shell/head_vidoptions"
 #define ART_GAMMA		"gfx/shell/gamma"
@@ -50,20 +51,35 @@ public:
 		void Draw() override;
 	} testImage;
 
-	CMenuPicButton	done;
+	CMenuSlider	gammaIntensity;
+	CMenuSlider	brightness;
+	CMenuCheckBox	filtering;
 
+#if XASH_XBOX
+	// XM.1 item 7: text heading in place of ART_BANNER, matching every
+	// other Xbox screen this fork reshaped (Audio.cpp, GameOptions.cpp).
+	CMenuAction	heading;
+	// A read-only annotation, not a setting - real Xbox hardware state
+	// (EngFuncs::GetVideoInfo, vid_common.c's own UI_GetVideoInfo), never
+	// a literal (Codex review of the plan, round 2: the design canvas's
+	// own "640x480 - 4:3 - 60 Hz, set in Dashboard" is the NTSC 4:3 case,
+	// not the string). Recomputed in _VidInit(), which BaseWindow.cpp's
+	// own Show() runs on every visit to this screen, not just once.
+	CMenuAction	videoOutput;
+	char		videoOutputText[64];
+	CMenuPicButton	done;
+#else
+	CMenuPicButton	done;
 #if LEGACY_VIEWSIZE
 	CMenuSlider	screenSize;
 #endif
-	CMenuSlider	gammaIntensity;
-	CMenuSlider	brightness;
 	CMenuCheckBox	vbo;
 	CMenuCheckBox	swwater;
 	CMenuCheckBox	overbright;
-	CMenuCheckBox	filtering;
 	CMenuCheckBox	detailtex;
 	CMenuCheckBox	hudscale;
 	CMenuYesNoMessageBox	msgBox;
+#endif // XASH_XBOX
 
 	HIMAGE		hTestImage;
 };
@@ -97,6 +113,7 @@ void CMenuVidOptions::GetConfig( void )
 
 void CMenuVidOptions::SaveAndPopMenu( void )
 {
+#if !XASH_XBOX
 #if LEGACY_VIEWSIZE
 	screenSize.WriteCvar();
 #endif
@@ -104,8 +121,9 @@ void CMenuVidOptions::SaveAndPopMenu( void )
 	vbo.WriteCvar();
 	swwater.WriteCvar();
 	overbright.WriteCvar();
-	filtering.WriteCvar();
 	hudscale.WriteCvar();
+#endif // !XASH_XBOX
+	filtering.WriteCvar();
 	// gamma and brightness is already written
 
 	CMenuFramework::SaveAndPopMenu();
@@ -159,6 +177,109 @@ void CMenuVidOptions::CMenuVidPreview::Draw( )
 CMenuVidOptions::Init
 =================
 */
+#if XASH_XBOX
+void CMenuVidOptions::_Init( void )
+{
+	// XM.1 item 7 (fork-plan.md): Brightness/Gamma keep their stock
+	// sliders and preview image unchanged - both work identically on
+	// Xbox, and gamma.bmp degrades clean on HL25 content the same way
+	// every other WON-only bitmap in this fork already does (absent,
+	// no error - checked directly, not assumed).
+	//
+	// Three stock rows are gone, not merely hidden, because none of them
+	// mean what their label promises here: r_detailtextures/gl_vbo/
+	// r_ripple/gl_overbright are ref_gl-only settings, and ref_gl is
+	// never compiled or linked for Xbox at all (tools/xbox-link-check.sh
+	// builds ref/soft exclusively) - r_refdll_loaded is always "soft" at
+	// runtime, so stock's own Reload() already grays every one of these
+	// permanently through its existing gl_active check, and a row that
+	// can never be un-grayed is clutter, not a setting. "Texture
+	// filtering" needed no Xbox-specific change at all for the same
+	// reason: Reload()'s own soft_active branch already links it to
+	// sw_texfilt whenever ref_gl isn't active, which is unconditionally
+	// true on this console.
+	//
+	// "Screen size" (viewsize) and "HUD size" (hud_scale) are dropped
+	// too, and this correction is the point of this note, not a footnote
+	// to it: checked against their real client-side consumers rather
+	// than the plan's own assumption. viewsize does not control
+	// inventory or status-bar visibility in the real client at all - its
+	// only real effect (SCR_TileClear, cl_scrn.c) is a Quake-era
+	// letterboxed-viewport shrink, a legacy console aesthetic with no
+	// couch-TV benefit on an already-640x480 screen; the "no inventory"/
+	// "no status bar" bands this file's OWN disabled preview widget
+	// hints at were never real client behaviour, only a hand-drawn
+	// approximation inside that one thumbnail. hud_scale fares worse:
+	// CL_GetScreenInfo (cl_dll/dll_int/cl_game.c) can only enlarge the
+	// HUD when the reference width it is compared against exceeds the
+	// real screen width, but Xbox's screen is a fixed 640
+	// (XVideoSetMode(640,480,...), divergence #50) and
+	// hud_scale_minimal_width defaults to exactly 640 too - so with that
+	// default, NO value of hud_scale can ever enlarge anything on this
+	// console; the canvas's "Large, for a TV" cannot be built by wiring
+	// a UI control to this cvar alone. Making that actually work needs
+	// hud_scale_minimal_width lowered as its own, separately-verified
+	// engine change (a real divergence, not a UI hookup) - a tracked
+	// follow-up, not guessed into this row.
+	hTestImage = EngFuncs::PIC_Load( ART_GAMMA, PIC_KEEP_SOURCE | PIC_EXPAND_SOURCE );
+
+	testImage.iFlags = QMF_INACTIVE;
+	testImage.SetRect( 390, 225, 480, 450 );
+	testImage.SetPicture( ART_GAMMA );
+
+	heading.iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
+	heading.szName = L( "GameUI_Video" );
+	heading.colorBase = uiColorHeading;
+	heading.SetCharSize( QM_BIGFONT );
+	heading.SetRect( 72, 200, 400, 32 );
+
+	// Codex review round 1 (item 8/6's own lesson, applied not
+	// re-discovered): CMenuSlider draws its label above its SetCoord y,
+	// so the first slider reuses stock Audio.cpp's own proven-safe
+	// y=280, clear of the heading above it.
+	gammaIntensity.szName = L( "GameUI_Gamma" );
+	gammaIntensity.SetCoord( 72, 280 );
+	gammaIntensity.Setup( 0.0, 1.0, 0.025 );
+	gammaIntensity.onChanged = VoidCb( &CMenuVidOptions::UpdateConfig );
+	gammaIntensity.onCvarGet = VoidCb( &CMenuVidOptions::GetConfig );
+
+	brightness.szName = L( "GameUI_Brightness" );
+	brightness.SetCoord( 72, 340 );
+	brightness.Setup( 0, 1.0, 0.025 );
+	brightness.onChanged = VoidCb( &CMenuVidOptions::UpdateConfig );
+	brightness.onCvarGet = VoidCb( &CMenuVidOptions::GetConfig );
+
+	filtering.szName = L( "Texture filtering" );
+	filtering.SetCoord( 72, 400 );
+
+	videoOutput.iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
+	videoOutput.szName = videoOutputText;
+	videoOutput.colorBase = uiColorHelp;
+	videoOutput.SetCharSize( QM_SMALLFONT );
+	videoOutput.SetRect( 72, 450, 400, 26 );
+	videoOutputText[0] = '\0';
+
+	done.SetNameAndStatus( L( "GameUI_OK" ), nullptr );
+	done.SetPicture( PC_DONE );
+	done.onReleased = VoidCb( &CMenuVidOptions::SaveAndPopMenu );
+	done.iFlags |= QMF_NOTIFY;
+	done.SetCoord( 72, 510 );
+
+	AddItem( heading );
+	AddItem( gammaIntensity );
+	AddItem( brightness );
+	AddItem( filtering );
+	AddItem( videoOutput );
+	AddItem( done );
+	AddItem( testImage );
+
+	gammaIntensity.LinkCvar( "gamma" );
+	brightness.LinkCvar( "brightness" );
+	// skip filtering.LinkCvar, different names in ref_gl and ref_soft -
+	// Reload() links it to sw_texfilt every time, ref_gl never being
+	// active on Xbox
+}
+#else
 void CMenuVidOptions::_Init( void )
 {
 	hTestImage = EngFuncs::PIC_Load( ART_GAMMA, PIC_KEEP_SOURCE | PIC_EXPAND_SOURCE );
@@ -299,18 +420,34 @@ void CMenuVidOptions::_Init( void )
 	// skip filtering.LinkCvar, different names in ref_gl and ref_soft
 	hudscale.LinkCvar( "hud_scale" );
 }
+#endif // XASH_XBOX
 
+#if XASH_XBOX
+void CMenuVidOptions::_VidInit()
+{
+	outlineWidth = 2;
+	UI_ScaleCoords( NULL, NULL, &outlineWidth, NULL );
+
+	int width, height, refresh, widescreen, letterbox;
+	EngFuncs::GetVideoInfo( &width, &height, &refresh, &widescreen, &letterbox );
+
+	const char *aspect = widescreen ? "16:9" : ( letterbox ? "Letterbox" : "4:3" );
+	snprintf( videoOutputText, sizeof( videoOutputText ), "%dx%d - %s - %d Hz", width, height, aspect, refresh );
+}
+#else
 void CMenuVidOptions::_VidInit()
 {
 	outlineWidth = 2;
 	UI_ScaleCoords( NULL, NULL, &outlineWidth, NULL );
 }
+#endif // XASH_XBOX
 
 void CMenuVidOptions::Reload()
 {
 	bool gl_active = !strnicmp( EngFuncs::GetCvarString( "r_refdll_loaded" ), "gl", 2 );
 	bool soft_active = !stricmp( EngFuncs::GetCvarString( "r_refdll_loaded" ), "soft" );
 
+#if !XASH_XBOX
 	detailtex.SetGrayed( !gl_active );
 	detailtex.SetInactive( !gl_active );
 
@@ -342,7 +479,12 @@ void CMenuVidOptions::Reload()
 
 	overbright.SetGrayed( !gl_active );
 	overbright.SetInactive( !gl_active );
+#endif // !XASH_XBOX
 
+	// Xbox needs this half unconditionally: ref_gl is never linked here
+	// (r_refdll_loaded is always "soft"), so this always takes the
+	// soft_active branch below, linking filtering to sw_texfilt - the
+	// same runtime dispatch stock PC uses, unmodified.
 	if( soft_active || gl_active )
 	{
 		filtering.SetGrayed( false );
