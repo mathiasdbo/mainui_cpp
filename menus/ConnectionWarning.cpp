@@ -3,6 +3,17 @@
 #include "PicButton.h"
 #include "Action.h"
 
+// XM.1 item 9 (fork-plan.md): a first-time internet-connection-quality
+// wizard (packet size for dial-up/DSL/etc.), hidden until XN - unlike
+// ConnectionProgress.cpp/ServerBrowser.cpp's own callers, nothing in
+// this fork calls into this file at all (Codex review found its own
+// registration still console-reachable). UI_ConnectionWarning_f is
+// still a required slot in udll_int.cpp's exported gExtendedTable
+// (the engine calls it directly, not through this file's own callers),
+// so a one-line stub takes its place there on Xbox. Kept otherwise
+// stock, for the merge diff.
+#if !XASH_XBOX
+
 enum EPresets { EPRESET_NORMAL = 0, EPRESET_DSL, EPRESET_SLOW, EPRESET_LAST };
 
 class CMenuConnectionWarning : public CMenuBaseWindow
@@ -134,3 +145,5 @@ void UI_ConnectionWarning_f()
 		UI_Main_Menu();
 	menu_connectionwarning->Show();
 }
+
+#endif // !XASH_XBOX
