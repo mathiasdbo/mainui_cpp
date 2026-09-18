@@ -59,6 +59,11 @@ const char	*uiSounds[] = {
 // they match default WON colors.lst now, except alpha
 // a1ba: made uiColorHelp brighter so it's easier to read
 unsigned int uiColorHelp        = 0xFFA0A0A0; // 160, 160, 160, 255 // hint letters color
+// Defaults to uiColorHelp's own value, not the design's amber: a build
+// with no colors.lst (BaseMenu.h's own extern comment) should look
+// exactly as already shipped and screenshotted, not silently change -
+// the amber is content (assets/gfx/shell/colors.lst), not a code default.
+unsigned int uiColorHeading     = 0xFFA0A0A0; // matches uiColorHelp until colors.lst overrides it
 unsigned int uiPromptBgColor    = 0xFF383838; // 56,  56,  56,  255 // dialog background color
 unsigned int uiPromptTextColor  = 0xFFF0B418; // 240, 180, 24,  255 // dialog or button letters color
 unsigned int uiPromptFocusColor = 0xFFFFFF00; // 255, 255,  0,  255 // dialog or button focus letters color
@@ -952,6 +957,10 @@ void UI_ApplyCustomColors( void )
 		if( !stricmp( token, "HELP_COLOR" ))
 		{
 			UI_ParseColor( pfile, &uiColorHelp );
+		}
+		else if( !stricmp( token, "HEADING_COLOR" ))
+		{
+			UI_ParseColor( pfile, &uiColorHeading );
 		}
 		else if( !stricmp( token, "PROMPT_BG_COLOR" ))
 		{

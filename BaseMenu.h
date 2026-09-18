@@ -138,6 +138,16 @@ extern uiStatic_t		uiStatic;
 #define DLG_X ((uiStatic.width - 640) / 2 - 192) // Dialogs are 640px in width
 
 extern unsigned int	uiColorHelp;
+// XM.1 item 13 step 2: a heading (CMenuAction, QM_BIGFONT) has no colour
+// role of its own in stock mainui - every Xbox screen this fork reshaped
+// reused uiColorHelp, the SAME global every slider/checkbox/status-line
+// label already draws with (Slider.cpp:165/206, PicButton.cpp:252,
+// CheckBox.cpp:48, ...), because nothing else was in scope. The design
+// canvas wants a heading bright amber and help text a cool blue-grey -
+// two colours, one global - so a heading and a help line could never
+// both match the canvas through uiColorHelp alone. This is the one
+// distinction the plan calls out as necessary rather than a nudge.
+extern unsigned int	uiColorHeading;
 extern unsigned int	uiPromptBgColor;
 extern unsigned int	uiPromptTextColor;
 extern unsigned int	uiPromptFocusColor;
