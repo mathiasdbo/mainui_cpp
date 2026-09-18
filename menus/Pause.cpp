@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
 #include "Framework.h"
+#include "keydefs.h"
 #include "PicButton.h"
 #include "Action.h"
 #include "YesNoMessageBox.h"
@@ -42,28 +43,50 @@ private:
 	void _Init( void ) override;
 	void _VidInit( void ) override;
 	void Hide( void ) override;
+	bool KeyDown( int key ) override;
 
 	void QuitConfirmedCb( void );
 	void QuitDialogCb( void );
 
+	// Codex review (round 1, finding 1): BACK is independently bound to
+	// raw "pause" (engine/client/input/in_keys.c) outside this menu, and
+	// SV_Pause_f (engine/server/sv_client.c) is a toggle, not a settable
+	// flag - so a player can already be paused (or not) by the time this
+	// screen opens or closes. Tracks whether THIS screen's own _VidInit
+	// was the one that flipped pause on, so Hide() only flips it back off
+	// when this screen caused it - never blindly toggling on either edge.
+	bool m_bDidPause;
+
 public:
-	CMenuPause() : CMenuFramework( "CMenuPause" ) { }
+	CMenuPause() : CMenuFramework( "CMenuPause" ), m_bDidPause( false ) { }
 
 	CMenuAction heading;
 	// A read-only annotation, same idiom as Display's own "Video output"
 	// row (divergence #71) - real state, never a literal. Difficulty is
 	// real (the "skill" cvar, the same one NewGame.cpp's own Easy/Medium/
 	// Difficult rows write - GameUI_Easy/Medium/Difficult are real,
-	// already-resolved dictionary keys). "Chapter" from the canvas is
-	// NOT built: classic Half-Life's SDK has no chapter-title concept at
-	// all (grepped deps/hlsdk/cl_dll/ for "chapter" - nothing; that is an
-	// HL2-era idea), so the console's own map name (`c1a0`, an internal
-	// codename with no display-name database in this SDK) is all there
-	// really is to show, and showing a codename in its place would be
-	// cryptic rather than the polish the canvas asked for - "never guess
-	// a constant" extends to never inventing a display database this
-	// project has no source for either. A tracked follow-up if this SDK
-	// ever grows one; not guessed here.
+	// already-resolved dictionary keys).
+	//
+	// Chapter title, corrected in Codex review: an earlier version of
+	// this claimed classic Half-Life has no chapter-title concept at all
+	// because only deps/hlsdk/cl_dll/ was grepped - the client DLL, which
+	// never sees it. It is real: worldspawn's own "chaptertitle" key
+	// (deps/hlsdk/dlls/world.cpp:663-674) fires a one-time client message
+	// at map start, which is not something to read back later - but the
+	// engine ALSO carries a complete mapname-to-title-token table for
+	// every retail HL/OpFor/BShift map (engine/server/sv_save.c's own
+	// gTitleComments[], already used to build save-file comments,
+	// LoadGame.cpp:286's own `L(s)` already resolving its tokens) that
+	// does not depend on a given map re-setting chaptertitle - most
+	// mid-chapter maps do not. `SV_ResolveLevelTitle()`, pulled out of
+	// that same file's SaveBuildComment (a pure refactor, save comments
+	// unchanged), populates a new read-only `sv_leveltitle` cvar once a
+	// map activates (SV_ActivateServer, sv_init.c) - the same zero-new-
+	// ABI-surface shape as Display's own vid_refresh/vid_aspect, Xbox-
+	// only end to end since this cvar has exactly one reader.
+	CMenuAction chapterTitle;
+	char chapterTitleText[64];
+
 	CMenuAction difficulty;
 	char difficultyText[32];
 
@@ -123,10 +146,16 @@ CMenuPause::Hide
 The single place every exit path goes through - the Resume button, B/
 Escape (CMenuBaseWindow::KeyDown's own Escape branch calls Hide()
 directly, never a separate handler, the same idiom Editable.cpp's own
-discard-on-Escape relies on elsewhere in this fork), and Quit's own
-QuitConfirmedCb above. Toggling "pause" again here rather than in
-Resume's own onReleased means every path unpauses exactly once, with no
-risk of a button-specific handler being added later that forgets to.
+discard-on-Escape relies on elsewhere in this fork), START (this
+screen's own KeyDown override, below), and Quit's own QuitConfirmedCb
+above.
+
+"pause" is only re-issued here if _VidInit() (below) recorded that THIS
+screen was the one that paused - Codex review (round 1, finding 1)
+found that blindly toggling on every exit path corrupts state whenever
+the player was already paused by some other means (BACK is bound to
+raw "pause" independently of this menu, engine/client/input/in_keys.c)
+before this screen ever opened.
 
 ui_renderworld back to 0 restores the flat, opaque background the rest
 of the in-game menu tree still expects (Options/Audio/Game reached from
@@ -138,10 +167,40 @@ it back.
 */
 void CMenuPause::Hide( void )
 {
-	EngFuncs::ClientCmd( false, "pause\n" );
+	if( m_bDidPause )
+	{
+		EngFuncs::ClientCmd( false, "pause\n" );
+		m_bDidPause = false;
+	}
+
 	EngFuncs::CvarSetValue( "ui_renderworld", 0.0f );
 
 	CMenuFramework::Hide();
+}
+
+/*
+=================
+CMenuPause::KeyDown
+
+Codex review (round 1, finding 2): once a menu is active, raw input
+goes straight to UI and never reaches gameplay bindings
+(engine/client/input/in_keys.c), and the inherited escape predicate
+(UI::Key::IsEscape, Utils.h) only recognizes Escape/B - Xbox's START is
+bound to "cancelselect" (in_keys.c), not pause, so it would otherwise
+do nothing here. Routes START through the same Hide() every other close
+path already uses; anything else falls through to the base class
+unchanged.
+=================
+*/
+bool CMenuPause::KeyDown( int key )
+{
+	if( key == K_START_BUTTON )
+	{
+		Hide();
+		return true;
+	}
+
+	return CMenuFramework::KeyDown( key );
 }
 
 /*
@@ -163,32 +222,39 @@ void CMenuPause::_Init( void )
 	heading.SetCharSize( QM_BIGFONT );
 	heading.SetRect( 72, 200, 400, 32 );
 
+	chapterTitle.iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
+	chapterTitle.szName = chapterTitleText;
+	chapterTitle.colorBase = uiColorHelp;
+	chapterTitle.SetCharSize( QM_SMALLFONT );
+	chapterTitle.SetRect( 72, 240, 400, 26 );
+	chapterTitleText[0] = '\0';
+
 	difficulty.iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
 	difficulty.szName = difficultyText;
 	difficulty.colorBase = uiColorHelp;
 	difficulty.SetCharSize( QM_SMALLFONT );
-	difficulty.SetRect( 72, 240, 400, 26 );
+	difficulty.SetRect( 72, 266, 400, 26 );
 	difficultyText[0] = '\0';
 
 	resumeGame.SetNameAndStatus( L( "GameUI_GameMenu_ResumeGame" ), nullptr );
 	resumeGame.onReleased = VoidCb( &CMenuPause::Hide );
 	resumeGame.iFlags |= QMF_NOTIFY;
-	resumeGame.SetCoord( 72, 280 );
+	resumeGame.SetCoord( 72, 310 );
 
 	saveGame.SetNameAndStatus( L( "GameUI_SaveGame" ), nullptr );
 	saveGame.onReleased = UI_SaveGame_Menu;
 	saveGame.iFlags |= QMF_NOTIFY;
-	saveGame.SetCoord( 72, 330 );
+	saveGame.SetCoord( 72, 360 );
 
 	loadGame.SetNameAndStatus( L( "GameUI_LoadGame" ), nullptr );
 	loadGame.onReleased = UI_LoadGame_Menu;
 	loadGame.iFlags |= QMF_NOTIFY;
-	loadGame.SetCoord( 72, 380 );
+	loadGame.SetCoord( 72, 410 );
 
 	options.SetNameAndStatus( L( "GameUI_Options" ), nullptr );
 	options.onReleased = UI_Options_Menu;
 	options.iFlags |= QMF_NOTIFY;
-	options.SetCoord( 72, 430 );
+	options.SetCoord( 72, 460 );
 
 	quitConfirm.SetMessage( L( "GameUI_QuitConfirmationText" ) );
 	quitConfirm.Link( this );
@@ -196,9 +262,10 @@ void CMenuPause::_Init( void )
 	quit.SetNameAndStatus( L( "GameUI_GameMenu_Quit" ), nullptr );
 	quit.onReleased = VoidCb( &CMenuPause::QuitDialogCb );
 	quit.iFlags |= QMF_NOTIFY;
-	quit.SetCoord( 72, 480 );
+	quit.SetCoord( 72, 510 );
 
 	AddItem( heading );
+	AddItem( chapterTitle );
 	AddItem( difficulty );
 	AddItem( resumeGame );
 	AddItem( saveGame );
@@ -232,21 +299,40 @@ void CMenuPause::_VidInit( void )
 
 	Q_strncpy( difficultyText, L( label ), sizeof( difficultyText ) );
 
-	// The pause itself and the dimmed live scene, both real hardware/
-	// engine state this screen has to switch on when it opens - "pause"
-	// is a real SV_TogglePause (engine/server/sv_client.c), reachable
-	// via ClientCmd exactly like Audio.cpp's own "vibrate" elsewhere in
-	// this fork; ui_renderworld is the single flag V_RenderView checks
-	// (engine/client/cl_view.c) to skip the 3D draw while a menu is up -
-	// AnimatedBanner.cpp/MovieBanner.cpp already flip the same cvar for
-	// their own reasons, this is not new engine territory. Both verified
-	// live before writing this screen, not assumed: memstats-adjacent
-	// verification for a pause screen makes no sense, so this was
-	// checked by reading SV_Pause_f/V_RenderView directly instead - see
-	// the plan's own two "measure before writing" prerequisites for item
-	// 10, both closed by that reading, neither by a boot test.
-	EngFuncs::ClientCmd( false, "pause\n" );
+	// sv_leveltitle (SV_UpdateLevelTitleCvar, sv_init.c/sv_save.c) - a
+	// "#TOKEN"-style localization key for retail maps, or plain text for
+	// anything else (a worldspawn message, or the raw mapname as a last
+	// resort) - both safe to hand to L() unchanged, the same as
+	// LoadGame.cpp's own already-established use of it on a save
+	// comment's own title piece.
+	Q_strncpy( chapterTitleText, L( EngFuncs::GetCvarString( "sv_leveltitle" ) ), sizeof( chapterTitleText ) );
+
+	// The dimmed live scene: ui_renderworld is the single flag
+	// V_RenderView checks (engine/client/cl_view.c) to skip the 3D draw
+	// while a menu is up - AnimatedBanner.cpp/MovieBanner.cpp already
+	// flip the same cvar for their own reasons, this is not new engine
+	// territory.
 	EngFuncs::CvarSetValue( "ui_renderworld", 1.0f );
+
+	// The pause itself: "pause" (SV_Pause_f, engine/server/sv_client.c)
+	// is a toggle, not a settable flag, and BACK is independently bound
+	// to it outside this menu (in_keys.c) - so only issue it if the game
+	// is not already paused, and remember that this screen is the one
+	// that caused it (cl_ispaused mirrors cl.paused, synced once per
+	// frame in Host_ClientFrame, cl_main.c - a read-only cvar rather
+	// than a new ui_enginefuncs_t export, same shape as sv_leveltitle
+	// above). Hide() only unpauses when m_bDidPause is true, so a
+	// pre-existing BACK-pause survives this screen opening and closing
+	// on top of it.
+	if( EngFuncs::GetCvarFloat( "cl_ispaused" ) == 0.0f )
+	{
+		EngFuncs::ClientCmd( false, "pause\n" );
+		m_bDidPause = true;
+	}
+	else
+	{
+		m_bDidPause = false;
+	}
 }
 
 ADD_MENU( menu_pause, CMenuPause, UI_Pause_Menu );
