@@ -520,13 +520,9 @@ void CMenuMain::VidInit( bool connected )
 
 	if( connected && single )
 	{
-		// XM.1 item 9 (fork-plan.md): SaveLoad.cpp's own PC hub is
-		// hidden on Xbox - the equivalent entry point is
-		// UI_SaveGame_Menu (LoadGame.cpp's own screen, opened in save
-		// mode), not that hub, which this row used to reach instead.
 		loadGame.SetNameAndStatus( L( "Save\\Load Game" ), L( "StringsList_192" ) );
 		loadGame.SetPicture( PC_SAVE_LOAD_GAME );
-		loadGame.onReleased = UI_SaveGame_Menu;
+		loadGame.onReleased = UI_SaveLoad_Menu;
 	}
 	else
 	{
