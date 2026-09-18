@@ -500,13 +500,22 @@ CMenuTable::KeyDown is the only place X does anything on this screen
 (Table.cpp), so showing it while Load/Save/Cancel is focused claimed a
 screen-wide action that was not actually reachable from there. Index 1
 is the second Add() call in _Init() (A, X, B in that order).
+
+Round 2: focus alone still isn't enough - CMenuTable::KeyDown buzzes
+instead of deleting on an empty list, and in save mode the synthetic
+"new save" row (index 0) is deliberately not deletable either. Rather
+than duplicating that predicate, reuses UpdateGame()'s own verdict
+directly: it already sets remove's own grayed state to exactly this
+same condition every time the selection changes, so checking that
+stays correct if UpdateGame() itself ever changes without this file
+needing a matching edit.
 =================
 */
 void CMenuLoadGame::Think( void )
 {
 	CMenuFramework::Think();
 
-	legend.SetVisible( 1, ItemAtCursor() == &savesList );
+	legend.SetVisible( 1, ItemAtCursor() == &savesList && !( remove.iFlags & QMF_GRAYED ) );
 }
 #endif
 
