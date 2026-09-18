@@ -30,6 +30,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "StringVectorModel.h"
 #include "ColorPickerDialog.h"
 
+// XM.1 item 9 (fork-plan.md): the multiplayer player-profile screen,
+// hidden until XN - its only caller, Multiplayer.cpp, is hidden the
+// same way, closing this file's own console command too. Kept
+// otherwise stock, for the merge diff.
+#if !XASH_XBOX
+
 #define ART_BANNER		"gfx/shell/head_customize"
 
 class CMenuPlayerSetup : public CMenuFramework
@@ -666,3 +672,5 @@ void CMenuPlayerSetup::Reload()
 
 
 ADD_MENU( menu_playersetup, CMenuPlayerSetup, UI_PlayerSetup_Menu );
+
+#endif // !XASH_XBOX

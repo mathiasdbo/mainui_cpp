@@ -28,6 +28,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "Slider.h"
 #include "YesNoMessageBox.h"
 
+// XM.1 item 9 (fork-plan.md): toggles mouse/touch controls, neither of
+// which exist on Xbox - hidden entirely. AdvancedControls.cpp's own
+// button is guarded the same way, and YesNoMessageBox.cpp's stray
+// message-box callback into this screen is guarded separately. Kept
+// otherwise stock, for the merge diff.
+#if !XASH_XBOX
+
 #define ART_BANNER			"gfx/shell/head_advanced"
 
 class CMenuInputDevices : public CMenuFramework
@@ -134,3 +141,5 @@ void CMenuInputDevices::_VidInit()
 }
 
 ADD_MENU( menu_inputdevices, CMenuInputDevices, UI_InputDevices_Menu );
+
+#endif // !XASH_XBOX

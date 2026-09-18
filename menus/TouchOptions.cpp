@@ -29,6 +29,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "YesNoMessageBox.h"
 #include "StringVectorModel.h"
 
+// XM.1 item 9 (fork-plan.md): stock PC-only screen, hidden entirely on
+// Xbox - Touch.cpp's own button into it is hidden the same way, so
+// this closes both that path and this file's own console command.
+// Kept otherwise stock, for the merge diff.
+#if !XASH_XBOX
+
 #define ART_BANNER	  	"gfx/shell/head_touch_options"
 
 class CMenuTouchOptions : public CMenuFramework
@@ -436,3 +442,5 @@ void CMenuTouchOptions::_VidInit( void )
 }
 
 ADD_MENU( menu_touchoptions, CMenuTouchOptions, UI_TouchOptions_Menu );
+
+#endif // !XASH_XBOX

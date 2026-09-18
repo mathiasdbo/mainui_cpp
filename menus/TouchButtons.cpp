@@ -30,6 +30,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "YesNoMessageBox.h"
 #include "StringArrayModel.h"
 #include "KbActListModel.h"
+
+// XM.1 item 9 (fork-plan.md): stock PC-only screen, hidden entirely on
+// Xbox - Touch.cpp's own button into it is hidden the same way, so
+// this closes both that path and this file's own console command (and,
+// with it, its own internal calls into FileDialog.cpp and
+// TouchEdit.cpp, both hidden separately). Kept otherwise stock, for the
+// merge diff.
+#if !XASH_XBOX
+
 #define ART_BANNER	  	"gfx/shell/head_touch_buttons"
 
 class CMenuTouchButtons;
@@ -721,3 +730,5 @@ extern "C" EXPORT void AddTouchButtonToList( const char *name, const char *textu
 {
 	menu_touchbuttons->model.AddButtonToList( name, texture, command, color, flags );
 }
+
+#endif // !XASH_XBOX

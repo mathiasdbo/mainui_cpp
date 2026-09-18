@@ -27,6 +27,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "utlvector.h"
 #include "StringArrayModel.h"
 
+// XM.1 item 9 (fork-plan.md): a resolution/renderer table with no
+// meaning on a fixed 640x480 console - hidden entirely. Its only
+// caller, Video.cpp, is hidden the same way, closing this file's own
+// console command too. Kept otherwise stock, for the merge diff.
+#if !XASH_XBOX
+
 #define ART_BANNER		"gfx/shell/head_vidmodes"
 
 // TODO:
@@ -401,3 +407,5 @@ void CMenuVidModes::Reload()
 }
 
 ADD_MENU( menu_vidmodes, CMenuVidModes, UI_VidModes_Menu )
+
+#endif // !XASH_XBOX

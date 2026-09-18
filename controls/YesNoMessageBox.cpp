@@ -247,7 +247,13 @@ void UI_ShowMessageBox( const char *text )
 		{
 			msgBoxInputDev.SetPositiveButton( L( "GameUI_OK" ), PC_OK, 100 );
 			msgBoxInputDev.SetNegativeButton( L( "GameUI_Options" ), PC_CONFIG, -20 );
+#if !XASH_XBOX
+			// XM.1 item 9 (fork-plan.md): InputDevices.cpp is hidden
+			// on Xbox (mouse/touch toggles, neither exists on this
+			// console) - left unset here, onNegative defaults to a
+			// no-op (CMenuYesNoMessageBox::_Init, :87-88).
 			msgBoxInputDev.onNegative = UI_InputDevices_Menu;
+#endif // !XASH_XBOX
 			msgBoxInputDev.yes.SetCoord( 200, 204 );
 
 			init = true;

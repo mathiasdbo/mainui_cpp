@@ -245,7 +245,13 @@ void CMenuControls::_Init( void )
 
 	AddItem( banner );
 	AddButton( L( "GameUI_UseDefaults" ), nullptr, PC_USE_DEFAULTS, msgBox2.MakeOpenEvent( ));
+#if !XASH_XBOX
+	// XM.1 item 9 (fork-plan.md): AdvancedControls.cpp is hidden on
+	// Xbox - its two useful rows already moved to Game (item 8), and
+	// hiding it here closes its own console command and the only path
+	// into InputDevices.cpp too.
 	AddButton( L( "Adv. Controls" ), nullptr, PC_ADV_CONTROLS, UI_AdvControls_Menu );
+#endif // !XASH_XBOX
 	AddButton( L( "GameUI_OK" ), nullptr, PC_OK, VoidCb( &CMenuControls::SaveAndPopMenu ));
 	AddButton( L( "GameUI_Cancel" ), nullptr, PC_CANCEL, VoidCb( &CMenuControls::Cancel ));
 	AddItem( keysList );

@@ -26,6 +26,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "CheckBox.h"
 #include "Action.h"
 
+// XM.1 item 9 (fork-plan.md): the Original Xbox has no gyroscope, so
+// this screen is hidden entirely - Gamepad.cpp's own "Gyroscope" button
+// is guarded the same way, closing both the button and this file's own
+// console command. Kept otherwise stock, for the merge diff.
+#if !XASH_XBOX
+
 #define ART_BANNER			"gfx/shell/head_gyro"
 
 class CMenuGyro : public CMenuFramework
@@ -257,3 +263,5 @@ void UI_MobileGyro_Menu( void )
 	menu_gyro->SetGamepadMode( false );
 	menu_gyro->Show();
 }
+
+#endif // !XASH_XBOX

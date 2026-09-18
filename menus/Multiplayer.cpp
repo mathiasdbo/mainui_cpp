@@ -24,6 +24,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "keydefs.h"
 #include "PlayerIntroduceDialog.h"
 
+// XM.1 item 9 (fork-plan.md): the multiplayer hub, hidden until XN
+// brings up real networking - Main.cpp's own button into this screen
+// is already guarded, so hiding this file too also closes its own
+// console command and every screen it alone leads to (ServerBrowser,
+// PlayerSetup). Kept otherwise stock, for the merge diff.
+#if !XASH_XBOX
+
 #define ART_BANNER			"gfx/shell/head_multi"
 
 class CMenuMultiplayer : public CMenuFramework
@@ -69,3 +76,5 @@ void CMenuMultiplayer::_Init( void )
 }
 
 ADD_MENU( menu_multiplayer, CMenuMultiplayer, UI_MultiPlayer_Menu );
+
+#endif // !XASH_XBOX

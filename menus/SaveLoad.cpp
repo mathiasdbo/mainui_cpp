@@ -23,6 +23,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "PicButton.h"
 #include "Action.h"
 
+// XM.1 item 9 (fork-plan.md): the PC hub for these two rows, hidden on
+// Xbox now that Main.cpp's own Save\Load row goes straight to
+// LoadGame.cpp's unified screen (item 3) instead - no caller left once
+// Main.cpp's own reference is fixed to match. Kept otherwise stock, for
+// the merge diff.
+#if !XASH_XBOX
+
 #define ART_BANNER		"gfx/shell/head_saveload"
 
 class CMenuSaveLoad : public CMenuFramework
@@ -64,3 +71,5 @@ void CMenuSaveLoad::_Init( void )
 }
 
 ADD_MENU( menu_saveload, CMenuSaveLoad, UI_SaveLoad_Menu );
+
+#endif // !XASH_XBOX

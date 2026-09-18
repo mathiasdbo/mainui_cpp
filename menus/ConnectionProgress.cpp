@@ -182,9 +182,20 @@ void CMenuConnectionProgress::HandleDisconnect( void )
 			UI_CloseMenu();
 			UI_SetActiveMenu( true );
 			UI_Main_Menu();
+#if !XASH_XBOX
+			// XM.1 item 9 (fork-plan.md): ServerBrowser.cpp and
+			// CreateGame.cpp are both hidden until XN. The browser
+			// call only no-ops when gamemode is GAME_SINGLEPLAYER_ONLY
+			// (ServerBrowser.cpp:473) - not guaranteed for every game
+			// this engine could run - and m_iSource can only become
+			// SOURCE_CREATEGAME by way of the now-unreachable
+			// CreateGame screen. Both stay dead code on Xbox rather
+			// than a real path, but the references themselves still
+			// need guarding to link.
 			UI_ServerBrowser_Menu();
 			if( m_iSource == SOURCE_CREATEGAME )
 				UI_CreateGame_Menu();
+#endif // !XASH_XBOX
 			if( m_iState == STATE_DOWNLOAD )
 			{
 				Show();

@@ -30,6 +30,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "StringArrayModel.h"
 #include "DropDown.h"
 
+// XM.1 item 9 (fork-plan.md): both the LAN and internet browsers,
+// hidden until XN brings up real networking - Multiplayer.cpp's own
+// buttons into these are hidden along with that whole file, closing
+// both console commands too. Kept otherwise stock, for the merge diff.
+#if !XASH_XBOX
+
 #define ART_BANNER_INET     "gfx/shell/head_inetgames"
 #define ART_BANNER_LAN      "gfx/shell/head_lan"
 #define ART_BANNER_LOCK     "gfx/shell/lock"
@@ -1656,3 +1662,5 @@ void UI_MenuResetPing_f( void )
 		menu_internetgames->ResetPing();
 }
 ADD_COMMAND( menu_resetping, UI_MenuResetPing_f );
+
+#endif // !XASH_XBOX

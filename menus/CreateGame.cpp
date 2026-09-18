@@ -29,6 +29,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "YesNoMessageBox.h"
 #include "Table.h"
 
+// XM.1 item 9 (fork-plan.md): hosting a game, hidden until XN - reached
+// only through ServerBrowser.cpp (hidden the same way) and
+// ConnectionProgress.cpp's own callback (guarded separately, since that
+// file otherwise stays a live, always-compiled connection handler).
+// Kept otherwise stock, for the merge diff.
+#if !XASH_XBOX
+
 #define ART_BANNER		"gfx/shell/head_creategame"
 
 static const char *MAX_CLIENTS_STRING()
@@ -344,3 +351,5 @@ void CMenuCreateGame::Reload( void )
 }
 
 ADD_MENU( menu_creategame, CMenuCreateGame, UI_CreateGame_Menu );
+
+#endif // !XASH_XBOX
