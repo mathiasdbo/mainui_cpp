@@ -77,11 +77,11 @@ public:
 	void Add( ELegendGlyph glyph, const char *verb );
 
 	// Shows or hides an already-added entry, by the order Add() was
-	// called in, without changing the slot layout of the entries after
-	// it (Draw() always advances a fixed slot per registered entry,
-	// hidden or not - a fixed row position matters more here than
-	// reflowing around a hidden one). Codex review (round 1): LoadGame's
-	// own X (Delete) only does anything while its saves table has focus
+	// called in - a hidden entry is skipped entirely in Draw() (its own
+	// measured width never enters the running x cursor other entries
+	// advance along), so entries after it reflow left rather than
+	// leaving a gap. Codex review (round 1): LoadGame's own X (Delete)
+	// only does anything while its saves table has focus
 	// (CMenuTable::KeyDown, Table.cpp) - showing it unconditionally
 	// claimed a screen-wide action that depends on which control is
 	// actually focused. LoadGame.cpp's own Think() override toggles this
@@ -91,12 +91,11 @@ public:
 	static const int MAX_ENTRIES = 5;
 
 private:
-	// Fixed per-entry width rather than measuring each verb string: this
-	// row is decorative chrome only (it does not dispatch, per the plan),
-	// so there is no focus/click geometry that has to be exact - a
-	// generous fixed slot is simpler and cannot drift out of alignment
-	// between screens the way per-string measurement could.
-	static const int SLOT_WIDTH = 140;
+	// Codex review (round 1): a fixed per-entry slot clipped a longer
+	// translation's own verb text against a shorter language's own
+	// assumed width. Draw() now measures each verb's real rendered
+	// width and advances a running cursor by it instead - this constant
+	// is only the glyph's own fixed size, not a slot width.
 	static const int GLYPH_SIZE = 20;
 
 	struct legend_entry_t

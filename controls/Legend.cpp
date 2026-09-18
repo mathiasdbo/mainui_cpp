@@ -50,7 +50,10 @@ CMenuLegend::CMenuLegend() : BaseClass()
 
 	iFlags |= QMF_INACTIVE;
 	SetCharSize( QM_SMALLFONT );
-	SetSize( MAX_ENTRIES * SLOT_WIDTH, GLYPH_SIZE );
+	// Nominal only - Draw() below positions every entry from its own
+	// measured text width, not from size.w/m_scSize, so this has nothing
+	// real to be exact about.
+	SetSize( 700, GLYPH_SIZE );
 }
 
 void CMenuLegend::SetRealCoord( int x, int y )
@@ -101,10 +104,8 @@ void CMenuLegend::SetVisible( int index, bool visible )
 CMenuLegend::Draw
 
 Purely descriptive (item 12's own "it describes, it does not dispatch") -
-no focus state, no click handling, drawn at a fixed slot per entry
-rather than measuring each verb string: this row carries no input
-geometry for that measurement to serve. A/B/X/Y draw as a filled disc
-in the button's own colour (the one new asset this control needs,
+no focus state, no click handling. A/B/X/Y draw as a filled disc in the
+button's own colour (the one new asset this control needs,
 gfx/shell/legend_button.tga - a plain tintable circle, everything else
 here is UI_FillRect/UI_DrawRectangleExt, no bitmap) with the letter
 centered on top in white for contrast; the D-pad draws as a filled
@@ -114,23 +115,35 @@ draws as an empty outlined pill with no letter or word inside it at
 all - checked directly against the canvas, which draws it exactly this
 way and puts the verb ("Resume") outside it, same as every other
 glyph, rather than labelling the shape itself.
+
+Codex review (round 1): a fixed slot per entry clipped "Move - Adjust"'s
+own German translation ("Bewegen - Anpassen", noticeably longer) against
+UI_DrawString's own ellipsis-on-overflow. Each entry now advances a
+running x cursor by its own measured verb width (GetTextWideScaled(),
+the same call Action.cpp's own VidInit uses to size a label from its
+text) plus a fixed gap, so a longer translation simply pushes the next
+entry over rather than clipping - correct for every language this ever
+ships, not just the two checked here. ETF_NOSIZELIMIT is still passed
+belt-and-suspenders, since the box width now already equals the
+measured text exactly and has no margin of its own to absorb a
+rounding difference between this measurement and UI_DrawString's own.
 =================
 */
 void CMenuLegend::Draw( void )
 {
 	int i;
 	int glyphSize = GLYPH_SIZE * uiStatic.scaleX;
-	int slotWidth = SLOT_WIDTH * uiStatic.scaleX;
+	int glyphGap = (int)( 8 * uiStatic.scaleX );    // glyph -> its own verb
+	int entryGap = (int)( 24 * uiStatic.scaleX );   // one entry's verb -> the next glyph
+	int x = m_scPos.x;
+	int y = m_scPos.y;
 
 	for( i = 0; i < m_iCount; i++ )
 	{
 		if( !m_entries[i].visible )
 			continue;
 
-		int x = m_scPos.x + i * slotWidth;
-		int y = m_scPos.y;
 		int glyphWidth = glyphSize;
-		int textX;
 
 		switch( m_entries[i].glyph )
 		{
@@ -170,8 +183,12 @@ void CMenuLegend::Draw( void )
 		}
 		}
 
-		textX = x + glyphWidth + ( 8 * uiStatic.scaleX );
-		UI_DrawString( font, textX, y, slotWidth - glyphWidth, glyphSize, m_entries[i].verb, colorBase, m_scChSize, QM_LEFT | QM_TOP );
+		int textX = x + glyphWidth + glyphGap;
+		int textWidth = g_FontMgr->GetTextWideScaled( font, m_entries[i].verb, m_scChSize );
+
+		UI_DrawString( font, textX, y, textWidth, glyphSize, m_entries[i].verb, colorBase, m_scChSize, QM_LEFT | QM_TOP, ETF_NOSIZELIMIT );
+
+		x = textX + textWidth + entryGap;
 	}
 }
 
