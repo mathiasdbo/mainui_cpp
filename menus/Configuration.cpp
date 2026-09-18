@@ -59,8 +59,25 @@ void CMenuOptions::_Init( void )
 		PC_CONTROLS, UI_Controls_Menu, QMF_NOTIFY );
 	AddButton( L( "GameUI_Audio" ), L( "Change sound volume and quality" ),
 		PC_AUDIO, UI_Audio_Menu, QMF_NOTIFY );
+#if XASH_XBOX
+	// XM.1 item 7: points straight at VideoOptions.cpp now that it is
+	// reshaped for Xbox, skipping Video.cpp's own two-button hub - that
+	// hub only exists to choose between "Video options" (VideoOptions.cpp)
+	// and "Video modes" (VideoModes.cpp), and VideoModes.cpp is hidden
+	// entirely on Xbox (no resolution table, no windowed/borderless, no
+	// r_refdll - none of it applies to a fixed 640x480 console), so the
+	// hub would offer exactly one working choice. Status text updated to
+	// match what the reshaped screen actually has now (brightness/gamma,
+	// texture filtering, a read-only video-output row) - the old text
+	// promised "screen size" and "video mode" controls item 7 found do
+	// not do what they say on Xbox and dropped (fork-plan.md item 7's own
+	// note).
+	AddButton( L( "GameUI_Video" ), L( "Change brightness and gamma" ),
+		PC_VIDEO, UI_VidOptions_Menu, QMF_NOTIFY );
+#else
 	AddButton( L( "GameUI_Video" ), L( "Change screen size, video mode and gamma" ),
 		PC_VIDEO, UI_Video_Menu, QMF_NOTIFY );
+#endif // XASH_XBOX
 #if !XASH_XBOX
 	AddButton( L( "Touch" ), L( "Change touch settings and buttons" ),
 		PC_TOUCH, UI_Touch_Menu, QMF_NOTIFY, 't' );
