@@ -201,10 +201,14 @@ void CMenuAudio::_Init( void )
 	done.iFlags |= QMF_NOTIFY;
 	done.SetCoord( 72, 480 );
 
+	// Corrected against the design canvas directly (docs/r3d/design):
+	// D-pad first, not last, and its own verb is "Move - Adjust", not
+	// "Adjust" alone - both sliders AND the row selection itself move
+	// with the D-pad, not just the value.
 	legend.SetRealCoord( 72, 438 );
+	legend.Add( LEGEND_DPAD, L( "Move - Adjust" ) );
 	legend.Add( LEGEND_A, L( "Select" ) );
 	legend.Add( LEGEND_B, L( "Back" ) );
-	legend.Add( LEGEND_DPAD, L( "Adjust" ) );
 
 	AddItem( heading );
 	AddItem( soundVolume );

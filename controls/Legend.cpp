@@ -24,16 +24,21 @@ GNU General Public License for more details.
 // guard, so this file has nothing to compile without it anyway.
 #if XASH_XBOX
 
-// XM.1 item 12: the canvas's own exact values for the four face buttons
-// (fork-plan.md, item 13's font-size audit) - these are fixed hardware-
-// button colours, not a re-themeable UI role like uiColorLegend above,
-// so they are literals here rather than another colors.lst key.
+// XM.1 item 12: the canvas's own exact values for the four face buttons -
+// these are fixed hardware-button colours, not a re-themeable UI role
+// like uiColorLegend above, so they are literals here rather than
+// another colors.lst key. Sampled directly from the design canvas
+// itself (docs/r3d/design/xbox menu/Half-Life Xbox Menu.html, rendered
+// headless and read pixel-by-pixel) rather than trusted from an earlier
+// note's own transcription - Y's own value there (#f0a91c) turned out
+// to be wrong, real value #f0c21b confirmed by sampling the same pixel
+// repeatedly across two different legend rows.
 static const unsigned int s_legendFaceColor[4] =
 {
 	0xFF6DBE45, // A - green
 	0xFFD9322D, // B - red
 	0xFF2F79C8, // X - blue
-	0xFFF0A91C, // Y - yellow
+	0xFFF0C21B, // Y - yellow (corrected from an earlier #f0a91c)
 };
 
 static const char *const s_legendFaceLetter[4] = { "A", "B", "X", "Y" };
@@ -102,10 +107,13 @@ geometry for that measurement to serve. A/B/X/Y draw as a filled disc
 in the button's own colour (the one new asset this control needs,
 gfx/shell/legend_button.tga - a plain tintable circle, everything else
 here is UI_FillRect/UI_DrawRectangleExt, no bitmap) with the letter
-centered on top in white for contrast; the D-pad draws as an outlined
-diamond with no letter; START draws as an outlined box containing the
-word itself, since it has no natural single-letter abbreviation the
-way the face buttons do.
+centered on top in white for contrast; the D-pad draws as a filled
+plus/cross (the canvas's own icon has slightly notched outer corners
+this rect-only approximation does not attempt to reproduce); START
+draws as an empty outlined pill with no letter or word inside it at
+all - checked directly against the canvas, which draws it exactly this
+way and puts the verb ("Resume") outside it, same as every other
+glyph, rather than labelling the shape itself.
 =================
 */
 void CMenuLegend::Draw( void )
@@ -139,26 +147,25 @@ void CMenuLegend::Draw( void )
 		}
 		case LEGEND_DPAD:
 		{
-			// An outlined diamond, not a bitmap - four short strokes
-			// meeting at the glyph's own midpoints, in the legend's own
-			// text colour (the D-pad has no single "Duke colour" the way
-			// the face buttons do).
-			int mid = glyphSize / 2;
-			int arm = glyphSize / 3;
-			int stroke = Q_max( 1, (int)( 2 * uiStatic.scaleX ) );
+			// A filled plus/cross - two overlapping bars, in the legend's
+			// own text colour (the D-pad has no single "Duke colour" the
+			// way the face buttons do).
+			int armWidth = Q_max( 2, (int)( glyphSize * 0.34f ) );
+			int barOffset = ( glyphSize - armWidth ) / 2;
 
-			UI_FillRect( x + mid - stroke / 2, y, stroke, arm, colorBase );
-			UI_FillRect( x + mid - stroke / 2, y + glyphSize - arm, stroke, arm, colorBase );
-			UI_FillRect( x, y + mid - stroke / 2, arm, stroke, colorBase );
-			UI_FillRect( x + glyphSize - arm, y + mid - stroke / 2, arm, stroke, colorBase );
+			UI_FillRect( x + barOffset, y, armWidth, glyphSize, colorBase );
+			UI_FillRect( x, y + barOffset, glyphSize, armWidth, colorBase );
 			break;
 		}
 		case LEGEND_START:
 		{
-			glyphWidth = glyphSize * 2;
+			// Empty on purpose - no letter, no word. Narrower than the
+			// face-button slot (the canvas's own pill reads as roughly
+			// glyph-height tall by 1.6x wide, not the 2x a boxed "START"
+			// label needed).
+			glyphWidth = (int)( glyphSize * 1.6f );
 
 			UI_DrawRectangleExt( x, y, glyphWidth, glyphSize, colorBase, Q_max( 1, (int)( 2 * uiStatic.scaleX ) ), QM_TOP | QM_BOTTOM | QM_LEFT | QM_RIGHT );
-			UI_DrawString( font, x, y, glyphWidth, glyphSize, "START", colorBase, m_scChSize, QM_CENTER );
 			break;
 		}
 		}

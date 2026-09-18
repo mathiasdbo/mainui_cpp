@@ -188,8 +188,14 @@ void CMenuGameOptions::_Init( void )
 	done.iFlags |= QMF_NOTIFY;
 	done.SetCoord( 72, 440 );
 
+	// Corrected against the design canvas directly (docs/r3d/design):
+	// this screen's three rows are checkboxes, moved between and toggled
+	// with the D-pad and A respectively - the canvas's own legend here is
+	// "D-pad Move / A Toggle / B Back", not the generic "A Select" this
+	// screen shipped with.
 	legend.SetRealCoord( 72, 438 );
-	legend.Add( LEGEND_A, L( "Select" ) );
+	legend.Add( LEGEND_DPAD, L( "Move" ) );
+	legend.Add( LEGEND_A, L( "Toggle" ) );
 	legend.Add( LEGEND_B, L( "Back" ) );
 
 	// Codex review round 2: registration order IS pad focus order
