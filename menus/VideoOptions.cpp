@@ -60,10 +60,11 @@ public:
 	// other Xbox screen this fork reshaped (Audio.cpp, GameOptions.cpp).
 	CMenuAction	heading;
 	// A read-only annotation, not a setting - real Xbox hardware state
-	// (EngFuncs::GetVideoInfo, vid_common.c's own UI_GetVideoInfo), never
-	// a literal (Codex review of the plan, round 2: the design canvas's
-	// own "640x480 - 4:3 - 60 Hz, set in Dashboard" is the NTSC 4:3 case,
-	// not the string). Recomputed in _VidInit(), which BaseWindow.cpp's
+	// (vid_width/vid_height/vid_refresh/vid_aspect, read-only cvars set
+	// by vid_common.c's VID_SetXboxVideoCvars), never a literal (Codex
+	// review of the plan, round 2: the design canvas's own "640x480 -
+	// 4:3 - 60 Hz, set in Dashboard" is the NTSC 4:3 case, not the
+	// string). Recomputed in _VidInit(), which BaseWindow.cpp's
 	// own Show() runs on every visit to this screen, not just once.
 	CMenuAction	videoOutput;
 	char		videoOutputText[64];
@@ -428,10 +429,17 @@ void CMenuVidOptions::_VidInit()
 	outlineWidth = 2;
 	UI_ScaleCoords( NULL, NULL, &outlineWidth, NULL );
 
-	int width, height, refresh, widescreen, letterbox;
-	EngFuncs::GetVideoInfo( &width, &height, &refresh, &widescreen, &letterbox );
+	// Read-only cvars (vid_common.c's VID_SetXboxVideoCvars), not a new
+	// engine export - Codex review round 1 caught the export approach
+	// extending a struct this codebase can't safely grow past its own
+	// documented freeze point without a version check it doesn't have.
+	// vid_width/vid_height already exist and already mirror the real,
+	// X5-clamped 640x480.
+	int width = (int)EngFuncs::GetCvarFloat( "vid_width" );
+	int height = (int)EngFuncs::GetCvarFloat( "vid_height" );
+	int refresh = (int)EngFuncs::GetCvarFloat( "vid_refresh" );
+	const char *aspect = EngFuncs::GetCvarString( "vid_aspect" );
 
-	const char *aspect = widescreen ? "16:9" : ( letterbox ? "Letterbox" : "4:3" );
 	snprintf( videoOutputText, sizeof( videoOutputText ), "%dx%d - %s - %d Hz", width, height, aspect, refresh );
 }
 #else
