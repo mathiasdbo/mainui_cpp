@@ -636,6 +636,16 @@ void UI_UpdateMenu( float flTime )
 
 	UI_DrawFinalCredits ();
 
+#if XASH_XBOX
+	// Codex review (round 2, finding 1): must run every frame regardless
+	// of nextFrameActive/menu.IsActive() below - it is watching for the
+	// specific edge where this screen disappears WITHOUT its own Hide()
+	// running (LoadGame.cpp's own UI_CloseMenu() on save/load completion
+	// wipes the whole stack without calling Hide() on anything left in
+	// it), and that edge can land on any frame.
+	UI_Pause_CheckClosed();
+#endif
+
 	// also moved opening main menu here from SetActiveMenu, so
 	// translation strings could will be loaded at this moment
 	if( uiStatic.nextFrameActive )
@@ -655,9 +665,16 @@ void UI_UpdateMenu( float flTime )
 			// opens the in-game menu... the single-player pause screen").
 			// CL_IsActive() (not raw ClientInGame()) matches Main.cpp's
 			// own primitive for "truly in a live, playable game", not the
-			// animated main-menu background level.
+			// animated main-menu background level. Codex review (round 2,
+			// finding 2): CL_IsActive() alone says nothing about player
+			// count - gated further with the exact host_serverstate/
+			// maxplayers==1 test Main.cpp's own QuitDialogCb already uses
+			// to mean "really singleplayer", so a multiplayer session
+			// (pausable defaults to 1 server-side, sv_main.c) still opens
+			// Main on START, not a screen that would pause the whole
+			// match and offer Save/Load that make no sense there.
 #if XASH_XBOX
-			if( CL_IsActive() )
+			if( CL_IsActive() && EngFuncs::GetCvarFloat( "host_serverstate" ) && EngFuncs::GetCvarFloat( "maxplayers" ) == 1.0f )
 				UI_Pause_Menu();
 			else
 				UI_Main_Menu();
