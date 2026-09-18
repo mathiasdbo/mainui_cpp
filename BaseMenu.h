@@ -280,6 +280,7 @@ public:
 void UI_Main_Menu( void );
 #if XASH_XBOX
 void UI_Pause_Menu( void ); // XM.1 item 10 - Pause.cpp, new
+void UI_Pause_CheckClosed( void ); // Pause.cpp - Codex round 2, finding 1
 #endif
 void UI_NewGame_Menu( void );
 void UI_LoadGame_Menu( void );

@@ -60,6 +60,28 @@ private:
 public:
 	CMenuPause() : CMenuFramework( "CMenuPause" ), m_bDidPause( false ) { }
 
+	// Codex review (round 2, finding 1): CMenuLoadGame::SaveGame()/
+	// ::LoadGame() (LoadGame.cpp) both finish by calling UI_CloseMenu(),
+	// which clears the ENTIRE window stack (CWindowStack::Clean(),
+	// WindowSystem.h) without calling Hide() on anything still in it -
+	// harmless for every other screen, since no other Hide() override
+	// does real work, but this screen's own unpause/ui_renderworld reset
+	// live there. Public so UI_Pause_CheckClosed() (below, polled once
+	// per frame from BaseMenu.cpp's own per-frame hook) can finish this
+	// screen's cleanup when it disappears that way instead of through
+	// its own Hide(). Idempotent - harmless to call again after a normal
+	// Hide() already ran (m_bDidPause already false by then).
+	void ClosedExternally( void )
+	{
+		if( m_bDidPause )
+		{
+			EngFuncs::ClientCmd( false, "pause\n" );
+			m_bDidPause = false;
+		}
+
+		EngFuncs::CvarSetValue( "ui_renderworld", 0.0f );
+	}
+
 	CMenuAction heading;
 	// A read-only annotation, same idiom as Display's own "Video output"
 	// row (divergence #71) - real state, never a literal. Difficulty is
@@ -167,13 +189,7 @@ it back.
 */
 void CMenuPause::Hide( void )
 {
-	if( m_bDidPause )
-	{
-		EngFuncs::ClientCmd( false, "pause\n" );
-		m_bDidPause = false;
-	}
-
-	EngFuncs::CvarSetValue( "ui_renderworld", 0.0f );
+	ClosedExternally();
 
 	CMenuFramework::Hide();
 }
@@ -336,5 +352,37 @@ void CMenuPause::_VidInit( void )
 }
 
 ADD_MENU( menu_pause, CMenuPause, UI_Pause_Menu );
+
+/*
+=================
+UI_Pause_CheckClosed
+
+Codex review (round 2, finding 1) - the actual fix, ClosedExternally()
+above is only the half of it this file owns. Polled once per frame from
+BaseMenu.cpp's own per-frame hook (the same one that opens this
+screen), independently of whatever closed it: LoadGame.cpp's own
+SaveGame()/LoadGame() call UI_CloseMenu() on save/load completion, which
+clears the ENTIRE window stack without calling Hide() on anything still
+in it - if this screen was still open underneath (Save/Load reached
+from here stay layered on top of it, exactly like Options does, so
+Escape/B from either without saving correctly pops back to a still-
+paused Pause), that cleanup would otherwise never run. IsVisible()
+(CMenuBaseWindow, already public) is true only while this screen is
+still on the stack, so a true-to-false edge means it left some way
+other than its own Hide() - Hide() itself pops it off the stack via
+CMenuFramework::Hide() before this could see a change, so the ordinary
+close paths never reach ClosedExternally() twice.
+=================
+*/
+void UI_Pause_CheckClosed( void )
+{
+	static bool s_bWasVisible = false;
+	bool visible = menu_pause != NULL && menu_pause->IsVisible();
+
+	if( s_bWasVisible && !visible )
+		menu_pause->ClosedExternally();
+
+	s_bWasVisible = visible;
+}
 
 #endif // XASH_XBOX
