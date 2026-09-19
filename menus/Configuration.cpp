@@ -91,15 +91,29 @@ void CMenuOptions::_Init( void )
 	AddButton( L( "Touch" ), L( "Change touch settings and buttons" ),
 		PC_TOUCH, UI_Touch_Menu, QMF_NOTIFY, 't' );
 #endif // !XASH_XBOX
+#if XASH_XBOX
+	// XM.1 item 5: this is that rebuild - Gamepad.cpp is now the
+	// Controller screen, so this row's own label follows it. PC_GAMEPAD
+	// stays the right icon either way (a joystick, not a mismatched one
+	// like PC_CUSTOMIZE/"Game" below) - only the text changes.
+	AddButton( L( "Controller" ), L( "Change controller scheme and settings" ),
+		PC_GAMEPAD, UI_GamePad_Menu, QMF_NOTIFY, 'g' );
+#else
 	AddButton( L( "GameUI_Joystick" ), L( "Change gamepad axis and button settings" ),
 		PC_GAMEPAD, UI_GamePad_Menu, QMF_NOTIFY, 'g' );
+#endif // XASH_XBOX
 #if XASH_XBOX
-	// XM.1 (fork-plan.md): "Controls" and "Video" stay pointed at their
-	// stock screens for now - renaming them to "Controller"/"Display"
-	// belongs to whichever change actually rebuilds those screens (items
-	// 5 and 7), not this one; doing it here first would label a button
-	// with a screen that does not exist yet. "Game" has no such
-	// dependency - GameOptions.cpp is already reshaped for Xbox.
+	// XM.1 (fork-plan.md): "Video" stays pointed at its stock screen for
+	// now - renaming it to "Display" belongs to whichever change actually
+	// rebuilds it (item 7), not this one; doing it here first would label
+	// a button with a screen that does not exist yet. "Controller" above
+	// is that same rule applied once item 5 actually landed - GamePad.cpp
+	// (this row's own target) already is the rebuilt screen now, so its
+	// label already follows. This screen's OWN "Controls" button (line
+	// ~67, PC_CONTROLS) is unrelated - it opens the keyboard/mouse screen
+	// directly, not through the renamed row here, and stays as-is. "Game"
+	// has no such dependency either - GameOptions.cpp is already reshaped
+	// for Xbox.
 	//
 	// Codex review, post-merge, round 2: no WON strip picture ever means
 	// "Game", so this can't reuse any EDefaultBtns id - not PC_ADV_OPT
