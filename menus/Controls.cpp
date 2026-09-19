@@ -297,6 +297,24 @@ bool CMenuControls::CGrabKeyMessageBox::KeyUp( int key )
 	{
 		const char *bindName = parent->keysListModel.entries[parent->keysList.GetCurrentIndex( )].bind;
 
+#if XASH_XBOX
+		// Codex review round 2: moved here from EnterGrabMode(), which
+		// used to clear an already-full (two-key) command's bindings
+		// BEFORE the new key was confirmed - so cancelling the grab
+		// (Escape, or Start via the guard above) still left the row
+		// unbound with nothing restored, and this screen's own Hide()
+		// (below) then persisted that damage to disk on the very next
+		// exit. Standard always dual-binds Fire/Secondary Fire by design
+		// (ControllerSchemes.cpp), so this was routinely reachable, not
+		// an edge case. Now the clear only happens atomically with an
+		// actually-accepted replacement.
+		int existingKeys[2];
+
+		CMenuKbActListModel::LookupBoundKeys( bindName, existingKeys );
+		if( existingKeys[1] != -1 )
+			parent->UnbindCommand( bindName );
+#endif // XASH_XBOX
+
 		EngFuncs::ClientCmdF( true, "bind \"%s\" \"%s\"\n", EngFuncs::KeynumToString( key ), bindName );
 
 		sound = SND_LAUNCH;
@@ -362,11 +380,13 @@ void CMenuControls::EnterGrabMode()
 	}
 #endif // XASH_XBOX
 
+#if !XASH_XBOX
 	int keys[2];
 
 	CMenuKbActListModel::LookupBoundKeys( bindName, keys );
 	if( keys[1] != -1 )
 		UnbindCommand( bindName );
+#endif // !XASH_XBOX
 
 	msgBox1.Show();
 
