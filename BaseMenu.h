@@ -324,6 +324,9 @@ void UI_TouchButtons_GetButtonList();
 void UI_MobileGyro_Menu( void );
 void UI_GamePad_Menu( void );
 void UI_GamePadGyro_Menu( void );
+#if XASH_XBOX
+void UI_ControllerSettings_Menu( void ); // XM.1 item 5 - ControllerSettings.cpp, new
+#endif
 void UI_Zoo_Menu( void );
 void UI_ServerInfo_Menu( netadr_t adr, const char *hostname );
 
