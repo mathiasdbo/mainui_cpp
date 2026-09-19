@@ -48,7 +48,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 class CMenuControllerSettings : public CMenuFramework
 {
 public:
-	CMenuControllerSettings() : CMenuFramework( "CMenuControllerSettings" ) { }
+	CMenuControllerSettings() : CMenuFramework( "CMenuControllerSettings" ), m_bYawWasInverted( false ) { }
 
 private:
 	void _Init( void ) override;
@@ -69,6 +69,16 @@ private:
 	// legend VideoOptions.cpp already uses for the same mix of one
 	// D-pad-adjustable slider plus toggle-with-A checkboxes.
 	CMenuLegend legend;
+
+	// Codex review round 1: stock Gamepad.cpp exposed invYaw as its own
+	// checkbox (Gamepad.cpp:230-232), so an existing player can already
+	// have joy_yaw < 0 saved. This screen drops the horizontal-invert
+	// CONTROL (this item's own design only offers one "Invert look" row,
+	// vertical), but must not destroy that already-saved preference the
+	// first time someone opens this screen and presses Done with nothing
+	// else changed - not a UI checkbox, just remembered sign state,
+	// re-applied to the merged magnitude on save exactly as it was read.
+	bool m_bYawWasInverted;
 };
 
 /*
@@ -77,19 +87,19 @@ CMenuControllerSettings::GetConfig
 
 joy_pitch's own sign is "Invert look" (vertical look only, matching stock
 Gamepad.cpp's own invPitch checkbox and every FPS convention this fork has
-seen elsewhere) - joy_yaw (horizontal turning) never gets an invert option,
-same as before. Both cvars are written together on Done, so only joy_pitch's
-magnitude needs reading back here; if a future path ever wrote them to
-different magnitudes, this screen would just resync them to whatever
-joy_pitch says the next time it opens, not corrupt anything.
+seen elsewhere). joy_yaw's own sign has no control on this screen, but is
+still read and remembered (m_bYawWasInverted) so Done cannot silently
+flip it back to positive for a player who already had it inverted.
 =================
 */
 void CMenuControllerSettings::GetConfig( void )
 {
 	float pitch = EngFuncs::GetCvarFloat( "joy_pitch" );
+	float yaw = EngFuncs::GetCvarFloat( "joy_yaw" );
 
 	lookSensitivity.SetCurrentValue( fabs( pitch ) / SENSITIVITY_SCALE );
 	invertLook.bChecked = pitch < 0.0f;
+	m_bYawWasInverted = yaw < 0.0f;
 
 	vibrationEnable.LinkCvar( "vibration_enable" );
 	enableOsk.LinkCvar( "osk_enable" );
@@ -105,7 +115,7 @@ void CMenuControllerSettings::SaveAndPopMenu( void )
 	float magnitude = lookSensitivity.GetCurrentValue() * SENSITIVITY_SCALE;
 
 	EngFuncs::CvarSetValue( "joy_pitch", invertLook.bChecked ? -magnitude : magnitude );
-	EngFuncs::CvarSetValue( "joy_yaw", magnitude );
+	EngFuncs::CvarSetValue( "joy_yaw", m_bYawWasInverted ? -magnitude : magnitude );
 
 	vibrationEnable.WriteCvar();
 	enableOsk.WriteCvar();
