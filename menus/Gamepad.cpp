@@ -130,6 +130,35 @@ static const char *s_schemeDescriptions[CONTROLLER_SCHEME_COUNT + 1] =
 	"Classic Half-Life pad controls, unchanged.",
 	"Your own layout - open Customize to change it, or press Y there to reset.",
 };
+
+// Codex review round 1: CMenuSwitch itself only changes its own state on
+// a mouse click or Enter (Switch.cpp's own KeyDown/KeyUp) - D-pad left/
+// right would otherwise be swallowed as plain focus navigation by the
+// base ItemsHolder (CMenuItemsHolder::Key, controls/ItemsHolder.cpp:83's
+// own "the focused item's KeyDown gets first refusal" contract), leaving
+// this screen's own scheme row completely unusable on a real pad. A
+// small Xbox-only subclass, not a change to the shared control -
+// ServerBrowser.cpp's own tabSwitch (PC-only, mouse-driven) is untouched.
+// CONTROLLER_SCHEME_COUNT+1 (Custom) is this screen's own known, fixed
+// segment count, not something CMenuSwitch itself exposes generically.
+class CMenuSchemeSwitch : public CMenuSwitch
+{
+public:
+	bool KeyDown( int key ) override
+	{
+		if( UI::Key::IsLeftArrow( key ) || UI::Key::IsRightArrow( key ))
+		{
+			int count = CONTROLLER_SCHEME_COUNT + 1;
+			int state = GetState() + ( UI::Key::IsRightArrow( key ) ? 1 : -1 );
+
+			SetState( ( state + count ) % count );
+			PlayLocalSound( uiStatic.sounds[SND_MOVE] );
+			return true;
+		}
+
+		return CMenuSwitch::KeyDown( key );
+	}
+};
 #endif // XASH_XBOX
 
 class CMenuGamePad : public CMenuFramework
@@ -141,9 +170,12 @@ private:
 	void _Init() override;
 	void _VidInit() override;
 	void GetConfig();
+#if !XASH_XBOX
 	void SaveAndPopMenu() override;
+#endif // !XASH_XBOX
 
 #if XASH_XBOX
+	void Hide( void ) override;
 	void OnSchemeChanged( void );
 	void UpdateSchemeDisplay( void );
 
@@ -153,7 +185,7 @@ private:
 	// row - the exact setup shape ServerBrowser.cpp's own tabSwitch
 	// already proves (`:1198-1208`), the only difference being what
 	// onChanged does (apply a real scheme here, switch a tab list there).
-	CMenuSwitch schemeSwitch;
+	CMenuSchemeSwitch schemeSwitch;
 
 	CMenuAction description;
 	char descriptionText[128];
@@ -313,6 +345,7 @@ void CMenuGamePad::OnSchemeChanged( void )
 }
 #endif // XASH_XBOX
 
+#if !XASH_XBOX
 /*
 =================
 CMenuGamePad::SetConfig
@@ -320,7 +353,6 @@ CMenuGamePad::SetConfig
 */
 void CMenuGamePad::SaveAndPopMenu()
 {
-#if !XASH_XBOX
 	float _side, _forward, _pitch, _yaw;
 	char binding[7] = { 0 };
 
@@ -361,18 +393,33 @@ void CMenuGamePad::SaveAndPopMenu()
 	EngFuncs::CvarSetString( "joy_axis_binding", binding );
 
 	enableOsk.WriteCvar();
-#endif // !XASH_XBOX
 
-	// XM.1 item 5 (Xbox): a scheme applies immediately on selection
-	// (OnSchemeChanged, above) - nothing new to write here - but the
-	// binds/cvars it already applied still need persisting to disk
-	// before this screen closes, the same host_writeconfig every other
-	// screen's own Done already runs via this same base-class call.
-	// Codex review already caught the opposite mistake once on the
-	// Customize sub-screen (divergences.md #85): an exit path that
-	// reverts instead of persists silently discards every change.
 	CMenuFramework::SaveAndPopMenu();
 }
+#else
+/*
+=================
+CMenuGamePad::Hide
+
+Codex review round 1: a scheme applies immediately on selection
+(OnSchemeChanged, above), but B/Escape's own inherited path
+(CMenuBaseWindow's own KeyDown - the same idiom Pause.cpp's own header
+comment documents, and Controls.cpp's own Hide() override already
+established for exactly this reason) calls Hide() directly, never
+Done's own SaveAndPopMenu() - so a scheme picked here, then left via
+B, was never persisted (host_writeconfig) and reverted on next boot.
+Done now routes through this same override (below) instead of its own
+SaveAndPopMenu(), so there is exactly one persistence path for both
+exits, not two separate writes.
+=================
+*/
+void CMenuGamePad::Hide( void )
+{
+	EngFuncs::ClientCmd( false, "host_writeconfig\n" );
+
+	CMenuFramework::Hide();
+}
+#endif // XASH_XBOX
 
 /*
 =================
@@ -490,7 +537,7 @@ void CMenuGamePad::_Init( void )
 
 	done.SetNameAndStatus( L( "Done" ), nullptr );
 	done.SetPicture( PC_DONE );
-	done.onReleased = VoidCb( &CMenuGamePad::SaveAndPopMenu );
+	done.onReleased = VoidCb( &CMenuGamePad::Hide );
 	done.iFlags |= QMF_NOTIFY;
 	done.SetCoord( 72, 350 + m_iBtnsNum * 50 );
 
