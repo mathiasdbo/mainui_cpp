@@ -48,7 +48,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 class CMenuControllerSettings : public CMenuFramework
 {
 public:
-	CMenuControllerSettings() : CMenuFramework( "CMenuControllerSettings" ), m_bYawWasInverted( false ) { }
+	CMenuControllerSettings() : CMenuFramework( "CMenuControllerSettings" ),
+		m_bYawWasInverted( false ), m_flOriginalPitchMagnitude( 0.0f ),
+		m_flOriginalYawMagnitude( 0.0f ), m_flInitialSliderValue( 0.0f ) { }
 
 private:
 	void _Init( void ) override;
@@ -77,8 +79,23 @@ private:
 	// vertical), but must not destroy that already-saved preference the
 	// first time someone opens this screen and presses Done with nothing
 	// else changed - not a UI checkbox, just remembered sign state,
-	// re-applied to the merged magnitude on save exactly as it was read.
+	// re-applied on save exactly as it was read.
 	bool m_bYawWasInverted;
+
+	// Codex review round 2: the round-1 fix above preserved yaw's SIGN but
+	// not its MAGNITUDE - merging two independently-adjustable sensitivities
+	// into one slider is the intended simplification (fork-plan.md's own
+	// wording), but it must only actually happen when the player moves that
+	// slider, not as a side effect of opening this screen and pressing Done
+	// with nothing touched (joy_pitch=100/joy_yaw=40 is a real reachable
+	// state - e.g. a save from before this fork, or the stock four-slider
+	// Gamepad.cpp). These three remember what GetConfig() found, so
+	// SaveAndPopMenu() can tell "slider actually moved" apart from "still at
+	// what it was initialised to" and only unify pitch/yaw in the former
+	// case.
+	float m_flOriginalPitchMagnitude;
+	float m_flOriginalYawMagnitude;
+	float m_flInitialSliderValue;
 };
 
 /*
@@ -89,7 +106,11 @@ joy_pitch's own sign is "Invert look" (vertical look only, matching stock
 Gamepad.cpp's own invPitch checkbox and every FPS convention this fork has
 seen elsewhere). joy_yaw's own sign has no control on this screen, but is
 still read and remembered (m_bYawWasInverted) so Done cannot silently
-flip it back to positive for a player who already had it inverted.
+flip it back to positive for a player who already had it inverted. Both
+magnitudes are remembered too (m_flOriginal{Pitch,Yaw}Magnitude), along
+with the slider's own initial position (m_flInitialSliderValue), so
+SaveAndPopMenu() can detect whether the player actually touched the merged
+control before deciding whether to unify the two cvars at all.
 =================
 */
 void CMenuControllerSettings::GetConfig( void )
@@ -97,9 +118,13 @@ void CMenuControllerSettings::GetConfig( void )
 	float pitch = EngFuncs::GetCvarFloat( "joy_pitch" );
 	float yaw = EngFuncs::GetCvarFloat( "joy_yaw" );
 
-	lookSensitivity.SetCurrentValue( fabs( pitch ) / SENSITIVITY_SCALE );
-	invertLook.bChecked = pitch < 0.0f;
+	m_flOriginalPitchMagnitude = fabs( pitch );
+	m_flOriginalYawMagnitude = fabs( yaw );
 	m_bYawWasInverted = yaw < 0.0f;
+
+	lookSensitivity.SetCurrentValue( m_flOriginalPitchMagnitude / SENSITIVITY_SCALE );
+	m_flInitialSliderValue = lookSensitivity.GetCurrentValue();
+	invertLook.bChecked = pitch < 0.0f;
 
 	vibrationEnable.LinkCvar( "vibration_enable" );
 	enableOsk.LinkCvar( "osk_enable" );
@@ -108,14 +133,25 @@ void CMenuControllerSettings::GetConfig( void )
 /*
 =================
 CMenuControllerSettings::SaveAndPopMenu
+
+Only unifies joy_pitch/joy_yaw into the slider's own value when the slider
+itself actually moved - otherwise each cvar keeps its own original
+magnitude (Codex review round 2), with only the sign changing if "Invert
+look" was toggled. This is the merged control's whole point (fork-plan.md:
+"one LinkCvar-style write driving both") without it silently overwriting a
+magnitude nothing on this screen asked to change.
 =================
 */
 void CMenuControllerSettings::SaveAndPopMenu( void )
 {
+	bool sliderChanged = lookSensitivity.GetCurrentValue() != m_flInitialSliderValue;
 	float magnitude = lookSensitivity.GetCurrentValue() * SENSITIVITY_SCALE;
 
-	EngFuncs::CvarSetValue( "joy_pitch", invertLook.bChecked ? -magnitude : magnitude );
-	EngFuncs::CvarSetValue( "joy_yaw", m_bYawWasInverted ? -magnitude : magnitude );
+	float pitchMagnitude = sliderChanged ? magnitude : m_flOriginalPitchMagnitude;
+	float yawMagnitude = sliderChanged ? magnitude : m_flOriginalYawMagnitude;
+
+	EngFuncs::CvarSetValue( "joy_pitch", invertLook.bChecked ? -pitchMagnitude : pitchMagnitude );
+	EngFuncs::CvarSetValue( "joy_yaw", m_bYawWasInverted ? -yawMagnitude : yawMagnitude );
 
 	vibrationEnable.WriteCvar();
 	enableOsk.WriteCvar();
