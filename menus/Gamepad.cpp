@@ -26,7 +26,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "CheckBox.h"
 #include "SpinControl.h"
 #include "StringArrayModel.h"
+#include "Switch.h"
 #include "Action.h"
+#include "keydefs.h"
+#if XASH_XBOX
+#include "Legend.h"
+#include "ControllerSchemes.h"
+#endif
 
 #define ART_BANNER			"gfx/shell/head_gamepad"
 
@@ -52,6 +58,80 @@ static const char *axisNames[7] =
 	"NOT BOUND"
 };
 
+#if XASH_XBOX
+// XM.1 item 5 (fork-plan.md): "the scheme's mapping list (Left trigger,
+// Left stick, Stick click, D-pad, Back) beside the Duke diagram with the
+// scheme's labels drawn by code". Read live from the engine's own bind/
+// axis state rather than from whichever scheme is selected - the same
+// "real state, never a literal" idiom this fork already uses for every
+// other read-only annotation (Pause.cpp's chapter title, VideoOptions.cpp's
+// video output row). This is also the only way to get Custom right: there
+// is no stored table for it to read from, but the live binds are always
+// real regardless of which named scheme (if any) currently matches them.
+struct CommandLabel_t
+{
+	const char *command;
+	const char *label;
+};
+
+// One entry per command any scheme table (ControllerSchemes.cpp) can
+// actually bind, mapped to kb_act.lst's own "#Valve_*" dictionary key so
+// this reuses the exact same translated strings the Customize screen's
+// own action list already shows for these commands - not a second set of
+// labels to keep in sync by hand. "cancelselect" is this fork's own
+// binding (not a kb_act.lst action), so it gets the same literal
+// "Pause Menu" label the Customize screen's own locked row already uses.
+static const CommandLabel_t s_commandLabels[] =
+{
+	{ "+attack",      "#Valve_Primary_Attack" },
+	{ "+attack2",     "#Valve_Secondary_Attack" },
+	{ "+jump",        "#Valve_Jump" },
+	{ "+duck",        "#Valve_Duck" },
+	{ "+use",         "#Valve_Use_Items" },
+	{ "+reload",      "#Valve_Reload_Weapon" },
+	{ "invnext",      "#Valve_Next_Weapon" },
+	{ "invprev",      "#Valve_Previous_Weapon" },
+	{ "impulse 100",  "#Valve_Flashlight" },
+	{ "+speed",       "#Valve_Walk" },
+	{ "slot1",        "#Valve_Weapon_Category_1" },
+	{ "slot2",        "#Valve_Weapon_Category_2" },
+	{ "slot3",        "#Valve_Weapon_Category_3" },
+	{ "slot4",        "#Valve_Weapon_Category_4" },
+	{ "save quick",   "#Valve_Quick_Save" },
+	{ "pause",        "#Valve_Pause_Game" },
+	{ "impulse 201",  "#Valve_Spray_Logo" },
+	{ "lastinv",      "#Valve_Last_Weapon_Used" },
+	{ "cancelselect", "Pause Menu" },
+};
+
+static const char *FriendlyCommandName( const char *command )
+{
+	if( !command || !command[0] )
+		return L( "NOT BOUND" );
+
+	for( size_t i = 0; i < V_ARRAYSIZE( s_commandLabels ); i++ )
+	{
+		if( !stricmp( command, s_commandLabels[i].command ))
+			return L( s_commandLabels[i].label );
+	}
+
+	// An unrecognised raw command (a config hand-edited outside every
+	// scheme this fork ships) - show it verbatim rather than hide it.
+	return command;
+}
+
+// One line per scheme (index by EControllerScheme, Custom included at
+// CONTROLLER_SCHEME_COUNT) - not this branch's spec to write verbatim,
+// so kept short and honest about what each one actually does.
+static const char *s_schemeDescriptions[CONTROLLER_SCHEME_COUNT + 1] =
+{
+	"Recommended - modern trigger controls, matching most shooters.",
+	"Standard with the sticks swapped - look with the left stick, move with the right.",
+	"Classic Half-Life pad controls, unchanged.",
+	"Your own layout - open Customize to change it, or press Y there to reset.",
+};
+#endif // XASH_XBOX
+
 class CMenuGamePad : public CMenuFramework
 {
 public:
@@ -63,6 +143,42 @@ private:
 	void GetConfig();
 	void SaveAndPopMenu() override;
 
+#if XASH_XBOX
+	void OnSchemeChanged( void );
+	void UpdateSchemeDisplay( void );
+
+	CMenuAction heading;
+
+	// XM.1 item 5: Standard / Southpaw / Legacy / Custom as one horizontal
+	// row - the exact setup shape ServerBrowser.cpp's own tabSwitch
+	// already proves (`:1198-1208`), the only difference being what
+	// onChanged does (apply a real scheme here, switch a tab list there).
+	CMenuSwitch schemeSwitch;
+
+	CMenuAction description;
+	char descriptionText[128];
+
+	// QMF_INACTIVE, non-interactive - the same pattern VideoOptions.cpp's
+	// own gamma test image already proves for a static diagram picture.
+	CMenuBitmap diagram;
+
+	CMenuAction mapLabels[5];
+	char mapLabelText[5][64];
+
+	// XM.1's own "do not use AddButton(EDefaultBtns)" call
+	// (Configuration.cpp:96-135's own precedent, this ledger's own
+	// EDefaultBtns-collision lesson): neither button has a real WON strip
+	// picture to match its new label, so both are heap-allocated,
+	// registered into m_apBtns manually, and never given a picture at
+	// all - PicButton.cpp's own text-only branch then always fires,
+	// independent of any strip's size, and ~CMenuFramework() still finds
+	// them in m_apBtns to clean up correctly on shutdown.
+	CMenuPicButton *settingsBtn;
+	CMenuPicButton *customizeBtn;
+	CMenuPicButton done;
+
+	CMenuLegend legend;
+#else
 	CMenuSlider side, forward, pitch, yaw;
 	CMenuCheckBox invSide, invFwd, invPitch, invYaw;
 
@@ -71,8 +187,10 @@ private:
 	CMenuAction axisBind_label;
 
 	CMenuCheckBox enableOsk;
+#endif // XASH_XBOX
 };
 
+#if !XASH_XBOX
 /*
 =================
 CMenuGamePad::GetConfig
@@ -137,6 +255,63 @@ void CMenuGamePad::GetConfig( void )
 		}
 	}
 }
+#else
+/*
+=================
+CMenuGamePad::GetConfig
+
+Runs on every visit (_VidInit(), below), not just construction - binds
+can change via the Customize sub-screen between visits, so the switch's
+own position has to be re-detected every time, not cached once.
+=================
+*/
+void CMenuGamePad::GetConfig( void )
+{
+	schemeSwitch.SetState( UI_DetectControllerScheme() );
+	UpdateSchemeDisplay();
+}
+
+/*
+=================
+CMenuGamePad::UpdateSchemeDisplay
+=================
+*/
+void CMenuGamePad::UpdateSchemeDisplay( void )
+{
+	int scheme = schemeSwitch.GetState();
+
+	Q_strncpy( descriptionText, L( s_schemeDescriptions[scheme] ), sizeof( descriptionText ));
+	description.szName = descriptionText;
+
+	snprintf( mapLabelText[0], sizeof( mapLabelText[0] ), "Left trigger: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_JOY1 )));
+
+	const char *axisBinding = EngFuncs::GetCvarString( "joy_axis_binding" );
+	bool leftStickLooks = axisBinding[0] == 'y' || axisBinding[0] == 'p';
+	snprintf( mapLabelText[1], sizeof( mapLabelText[1] ), "Left stick: %s", leftStickLooks ? "Look" : "Move" );
+
+	snprintf( mapLabelText[2], sizeof( mapLabelText[2] ), "Stick click: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_LSTICK )));
+	snprintf( mapLabelText[3], sizeof( mapLabelText[3] ), "D-pad: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_DPAD_UP )));
+	snprintf( mapLabelText[4], sizeof( mapLabelText[4] ), "Back: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_BACK_BUTTON )));
+
+	for( int i = 0; i < 5; i++ )
+		mapLabels[i].szName = mapLabelText[i];
+}
+
+/*
+=================
+CMenuGamePad::OnSchemeChanged
+
+UI_ApplyControllerScheme() no-ops for SCHEME_CUSTOM by design (its own
+header comment) - navigating the switch onto Custom just leaves the
+live config exactly as it already was, which is what put it there.
+=================
+*/
+void CMenuGamePad::OnSchemeChanged( void )
+{
+	UI_ApplyControllerScheme( (EControllerScheme)schemeSwitch.GetState() );
+	UpdateSchemeDisplay();
+}
+#endif // XASH_XBOX
 
 /*
 =================
@@ -145,6 +320,7 @@ CMenuGamePad::SetConfig
 */
 void CMenuGamePad::SaveAndPopMenu()
 {
+#if !XASH_XBOX
 	float _side, _forward, _pitch, _yaw;
 	char binding[7] = { 0 };
 
@@ -185,7 +361,16 @@ void CMenuGamePad::SaveAndPopMenu()
 	EngFuncs::CvarSetString( "joy_axis_binding", binding );
 
 	enableOsk.WriteCvar();
+#endif // !XASH_XBOX
 
+	// XM.1 item 5 (Xbox): a scheme applies immediately on selection
+	// (OnSchemeChanged, above) - nothing new to write here - but the
+	// binds/cvars it already applied still need persisting to disk
+	// before this screen closes, the same host_writeconfig every other
+	// screen's own Done already runs via this same base-class call.
+	// Codex review already caught the opposite mistake once on the
+	// Customize sub-screen (divergences.md #85): an exit path that
+	// reverts instead of persists silently discards every change.
 	CMenuFramework::SaveAndPopMenu();
 }
 
@@ -194,6 +379,7 @@ void CMenuGamePad::SaveAndPopMenu()
 CMenuGamePad::Init
 =================
 */
+#if !XASH_XBOX
 void CMenuGamePad::_Init( void )
 {
 	int i, y;
@@ -233,12 +419,7 @@ void CMenuGamePad::_Init( void )
 
 	AddItem( banner );
 	AddButton( L( "Controls" ), nullptr, PC_CONTROLS, UI_Controls_Menu );
-#if !XASH_XBOX
-	// XM.1 item 9 (fork-plan.md): the Original Xbox has no gyroscope -
-	// Gyro.cpp itself is hidden the same way, closing its own console
-	// command too.
 	AddButton( L( "Gyroscope" ), nullptr, PC_GYRO, UI_GamePadGyro_Menu, QMF_NOTIFY, 'g' );
-#endif // !XASH_XBOX
 	AddButton( L( "Done" ), nullptr, PC_DONE, VoidCb( &CMenuGamePad::SaveAndPopMenu ) );	// Обе строки уже встречались ранее !!
 	for( i = 0; i < 6; i++ )
 		AddItem( axisBind[i] );
@@ -253,9 +434,88 @@ void CMenuGamePad::_Init( void )
 	AddItem( invYaw );
 	AddItem( axisBind_label );
 }
+#else
+void CMenuGamePad::_Init( void )
+{
+	heading.iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
+	heading.szName = L( "Controller" );
+	heading.colorBase = uiColorHeading;
+	heading.SetCharSize( QM_BIGFONT );
+	heading.SetRect( 72, 200, 400, 32 );
+
+	schemeSwitch.SetRect( 72, 270, 460, 32 );
+	schemeSwitch.AddSwitch( L( "Standard" ) );
+	schemeSwitch.AddSwitch( L( "Southpaw" ) );
+	schemeSwitch.AddSwitch( L( "Legacy" ) );
+	schemeSwitch.AddSwitch( L( "Custom" ) );
+	schemeSwitch.eTextAlignment = QM_CENTER;
+	schemeSwitch.bMouseToggle = false;
+	schemeSwitch.bKeepToggleWidth = true;
+	schemeSwitch.iSelectColor = uiInputFgColor;
+	schemeSwitch.iFgTextColor = uiInputFgColor - 0x00151515; // bit darker, matching ServerBrowser.cpp's own tabSwitch
+	schemeSwitch.onChanged = VoidCb( &CMenuGamePad::OnSchemeChanged );
+
+	description.iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
+	description.colorBase = uiColorHelp;
+	description.SetCharSize( QM_SMALLFONT );
+	description.SetRect( 72, 320, 460, 48 );
+
+	diagram.iFlags = QMF_INACTIVE;
+	diagram.SetRect( 560, 220, 340, 253 );
+	diagram.SetPicture( "gfx/shell/duke" );
+
+	for( int i = 0; i < 5; i++ )
+	{
+		mapLabels[i].iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
+		mapLabels[i].colorBase = uiColorHelp;
+		mapLabels[i].SetCharSize( QM_SMALLFONT );
+		mapLabels[i].SetRect( 560, 480 + i * 24, 400, 22 );
+	}
+
+	settingsBtn = new CMenuPicButton();
+	settingsBtn->SetNameAndStatus( L( "Settings..." ), L( "Look sensitivity, invert look, vibration" ) );
+	settingsBtn->onReleased = UI_ControllerSettings_Menu;
+	settingsBtn->iFlags |= QMF_NOTIFY;
+	settingsBtn->SetCoord( 72, 350 + m_iBtnsNum * 50 );
+	AddItem( *settingsBtn );
+	m_apBtns[m_iBtnsNum++] = settingsBtn;
+
+	customizeBtn = new CMenuPicButton();
+	customizeBtn->SetNameAndStatus( L( "Customize..." ), L( "Change individual button and axis bindings" ) );
+	customizeBtn->onReleased = UI_Controls_Menu;
+	customizeBtn->iFlags |= QMF_NOTIFY;
+	customizeBtn->SetCoord( 72, 350 + m_iBtnsNum * 50 );
+	AddItem( *customizeBtn );
+	m_apBtns[m_iBtnsNum++] = customizeBtn;
+
+	done.SetNameAndStatus( L( "Done" ), nullptr );
+	done.SetPicture( PC_DONE );
+	done.onReleased = VoidCb( &CMenuGamePad::SaveAndPopMenu );
+	done.iFlags |= QMF_NOTIFY;
+	done.SetCoord( 72, 350 + m_iBtnsNum * 50 );
+
+	legend.SetRealCoord( 72, 438 );
+	legend.Add( LEGEND_DPAD, L( "Move - Adjust" ) );
+	legend.Add( LEGEND_A, L( "Select" ) );
+	legend.Add( LEGEND_B, L( "Back" ) );
+
+	// Registration order is pad focus order (ItemsHolder.cpp), independent
+	// of on-screen position - divergence #66's own already-established
+	// lesson, applied here rather than re-discovered.
+	AddItem( heading );
+	AddItem( schemeSwitch );
+	AddItem( description );
+	AddItem( diagram );
+	for( int i = 0; i < 5; i++ )
+		AddItem( mapLabels[i] );
+	AddItem( done );
+	AddItem( legend );
+}
+#endif // XASH_XBOX
 
 void CMenuGamePad::_VidInit()
 {
+#if !XASH_XBOX
 	axisBind_label.SetCoord( 360, 230 );
 	axisBind_label.SetCharSize( QM_SMALLFONT );
 
@@ -285,6 +545,7 @@ void CMenuGamePad::_VidInit()
 	yaw.SetCoord( 630, 430 + sliderAlign );
 	yaw.SetCharSize( QM_SMALLFONT );
 	invYaw.SetCoord( 850, 430 );
+#endif // !XASH_XBOX
 
 	GetConfig();
 }
