@@ -103,6 +103,14 @@ private:
 
 void CMenuControls::UnbindCommand( const char *command )
 {
+	// PC-only now (Xbox uses UnbindGamepadCommand, below - see its own
+	// comment and divergences.md #85's history for why this stock
+	// function's own prefix-match quirk, once fixed here directly, moved
+	// to that new, differently-scoped function instead once round 1 of
+	// the main-repo review found the plain exact-match fix on ITS OWN
+	// still wasn't enough). Left exactly as stock, untouched.
+	const size_t command_len = strlen( command );
+
 	for( int i = 0; ; i++ )
 	{
 		const char *str = EngFuncs::KeynumToString( i );
@@ -114,29 +122,8 @@ void CMenuControls::UnbindCommand( const char *command )
 		if( !b )
 			continue;
 
-#if XASH_XBOX
-		// Codex review round 1: the stock strncmp() below is a PREFIX
-		// match, not an exact one - clearing "+attack" also matches any
-		// key bound to "+attack2" (its own bound string starts with the
-		// same seven characters), a real, if latent, bug carried over
-		// verbatim from stock Controls.cpp. It was rarely reachable on PC
-		// (nothing there normally binds both to related keys a player
-		// would think to compare), but every scheme here binds BOTH
-		// together by design (ControllerSchemes.cpp) and this screen's
-		// own X (Clear) makes wiping one keystroke away - so clearing Fire
-		// routinely wiped Secondary Fire too. Fixed with an exact,
-		// case-insensitive match, the same comparison LookupBoundKeys
-		// (KbActListModel.h) already uses. A genuine upstream-quality fix,
-		// guarded here per this ledger's own policy since it has not been
-		// submitted upstream yet.
-		if( stricmp( b, command ))
-			continue;
-#else
-		if( strncmp( b, command, strlen( command )))
-			continue;
-#endif // XASH_XBOX
-
-		EngFuncs::KEY_SetBinding( i, "" );
+		if( !strncmp( b, command, command_len ))
+			EngFuncs::KEY_SetBinding( i, "" );
 	}
 }
 
@@ -168,6 +155,71 @@ static void FormatBoundKeyForRow( int key, char *out, size_t size )
 	if( s )
 		snprintf( out, size, "^3%s^7", s );
 }
+
+// Codex review round 1 (main-repo): the shared LookupBoundKeys()/
+// UnbindCommand() scan EVERY physical key number - keyboard and mouse
+// included. A typical config already has +attack bound to CTRL/MOUSE1
+// (stock defaults, engine/client/input/in_keys.c) in addition to
+// whatever gamepad keys a scheme sets, so this screen's own row
+// display, "already full" detection, Clear and Reassign must all stay
+// scoped to gamepad keys only - otherwise they can show, or worse
+// silently erase, a keyboard/mouse binding this screen never shows and
+// the player has no way to know it just touched.
+//
+// K_JOY1..K_TOUCHPAD (keydefs.h) is the engine's own contiguous
+// gamepad-key block - every button ControllerSchemes.cpp's own tables
+// ever bind falls inside it, and every keyboard/mouse key number falls
+// outside it (K_CTRL=133, well below; K_MOUSE1=241, above).
+static bool IsGamepadKey( int key )
+{
+	return key >= K_JOY1 && key <= K_TOUCHPAD;
+}
+
+static void LookupBoundGamepadKeys( const char *command, int twoKeys[2] )
+{
+	twoKeys[0] = twoKeys[1] = -1;
+
+	for( int i = 0, count = 0; ; i++ )
+	{
+		const char *str = EngFuncs::KeynumToString( i );
+		if( !strcmp( str, "<OUT OF RANGE>" ))
+			break;
+
+		if( !IsGamepadKey( i ))
+			continue;
+
+		const char *b = EngFuncs::KEY_GetBinding( i );
+		if( !b )
+			continue;
+
+		if( !stricmp( command, b ))
+		{
+			twoKeys[count++] = i;
+			if( count == 2 )
+				break;
+		}
+	}
+}
+
+static void UnbindGamepadCommand( const char *command )
+{
+	for( int i = 0; ; i++ )
+	{
+		const char *str = EngFuncs::KeynumToString( i );
+		if( !strcmp( str, "<OUT OF RANGE>" ))
+			break;
+
+		if( !IsGamepadKey( i ))
+			continue;
+
+		const char *b = EngFuncs::KEY_GetBinding( i );
+		if( !b )
+			continue;
+
+		if( !stricmp( b, command ))
+			EngFuncs::KEY_SetBinding( i, "" );
+	}
+}
 #endif // XASH_XBOX
 
 void CMenuKeysModel::Update( void )
@@ -194,7 +246,21 @@ void CMenuKeysModel::Update( void )
 		}
 
 		if( !keep )
+		{
 			entries.Remove( i );
+			continue;
+		}
+
+		// Codex review round 1 (main-repo): the base class above already
+		// filled first/second from the GLOBAL LookupBoundKeys(), which
+		// can return a keyboard/mouse key instead of, or as well as, this
+		// row's real gamepad binding(s) - recomputed from the gamepad-only
+		// lookup so this row shows (and this screen's own Clear/Reassign
+		// only ever touch) what a controller scheme actually set.
+		int rowKeys[2];
+		LookupBoundGamepadKeys( entries[i].bind, rowKeys );
+		FormatBoundKeyForRow( rowKeys[0], entries[i].first, sizeof( entries[i].first ));
+		FormatBoundKeyForRow( rowKeys[1], entries[i].second, sizeof( entries[i].second ));
 	}
 
 	// Start's own row - not a kb_act.lst action at all ("cancelselect" is
@@ -208,10 +274,10 @@ void CMenuKeysModel::Update( void )
 	Q_strncpy( startEntry.bind, "cancelselect", sizeof( startEntry.bind ));
 	snprintf( startEntry.display, sizeof( startEntry.display ), "^6%s^7", L( "Pause Menu" ));
 
-	int keys[2];
-	LookupBoundKeys( startEntry.bind, keys );
-	FormatBoundKeyForRow( keys[0], startEntry.first, sizeof( startEntry.first ));
-	FormatBoundKeyForRow( keys[1], startEntry.second, sizeof( startEntry.second ));
+	int startKeys[2];
+	LookupBoundGamepadKeys( startEntry.bind, startKeys );
+	FormatBoundKeyForRow( startKeys[0], startEntry.first, sizeof( startEntry.first ));
+	FormatBoundKeyForRow( startKeys[1], startEntry.second, sizeof( startEntry.second ));
 
 	entries.AddToTail( startEntry );
 #endif // XASH_XBOX
@@ -280,7 +346,20 @@ bool CMenuControls::CGrabKeyMessageBox::KeyUp( int key )
 	// since binding K_START_BUTTON to a different command here would
 	// silently move Start away from cancelselect without ever touching
 	// that row's own entry.
-	if( key == K_START_BUTTON )
+	//
+	// Codex review (main-repo round 2): a captured key must also be a
+	// REAL gamepad key, or this screen's own gamepad-scoped bookkeeping
+	// (LookupBoundGamepadKeys/UnbindGamepadCommand, above) can never see
+	// what it just bound. A stick moved while this dialog is open
+	// synthesizes K_UPARROW/DOWNARROW/LEFTARROW/RIGHTARROW events
+	// (engine/client/input/in_joy.c's own menu-navigation hat emulation)
+	// - accepting one of these would clear the row's real gamepad
+	// binding(s) (the pre-replacement check above still ran), bind a
+	// keyboard arrow key instead, then immediately hide that fact: the
+	// row's own display and every later Clear/Reassign use the SAME
+	// gamepad-only lookup, so the row would show, and be treated as,
+	// unbound - with no way back to the controller binding just erased.
+	if( key == K_START_BUTTON || !IsGamepadKey( key ))
 	{
 		sound = SND_BUZZ;
 	}
@@ -310,9 +389,9 @@ bool CMenuControls::CGrabKeyMessageBox::KeyUp( int key )
 		// actually-accepted replacement.
 		int existingKeys[2];
 
-		CMenuKbActListModel::LookupBoundKeys( bindName, existingKeys );
+		LookupBoundGamepadKeys( bindName, existingKeys );
 		if( existingKeys[1] != -1 )
-			parent->UnbindCommand( bindName );
+			UnbindGamepadCommand( bindName );
 #endif // XASH_XBOX
 
 		EngFuncs::ClientCmdF( true, "bind \"%s\" \"%s\"\n", EngFuncs::KeynumToString( key ), bindName );
@@ -350,7 +429,11 @@ void CMenuControls::UnbindEntry()
 	}
 #endif // XASH_XBOX
 
+#if XASH_XBOX
+	UnbindGamepadCommand( bindName );
+#else
 	UnbindCommand( bindName );
+#endif // XASH_XBOX
 	PlayLocalSound( uiStatic.sounds[SND_REMOVEKEY] );
 	keysListModel.Update();
 
