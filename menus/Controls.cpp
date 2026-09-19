@@ -346,7 +346,20 @@ bool CMenuControls::CGrabKeyMessageBox::KeyUp( int key )
 	// since binding K_START_BUTTON to a different command here would
 	// silently move Start away from cancelselect without ever touching
 	// that row's own entry.
-	if( key == K_START_BUTTON )
+	//
+	// Codex review (main-repo round 2): a captured key must also be a
+	// REAL gamepad key, or this screen's own gamepad-scoped bookkeeping
+	// (LookupBoundGamepadKeys/UnbindGamepadCommand, above) can never see
+	// what it just bound. A stick moved while this dialog is open
+	// synthesizes K_UPARROW/DOWNARROW/LEFTARROW/RIGHTARROW events
+	// (engine/client/input/in_joy.c's own menu-navigation hat emulation)
+	// - accepting one of these would clear the row's real gamepad
+	// binding(s) (the pre-replacement check above still ran), bind a
+	// keyboard arrow key instead, then immediately hide that fact: the
+	// row's own display and every later Clear/Reassign use the SAME
+	// gamepad-only lookup, so the row would show, and be treated as,
+	// unbound - with no way back to the controller binding just erased.
+	if( key == K_START_BUTTON || !IsGamepadKey( key ))
 	{
 		sound = SND_BUZZ;
 	}
