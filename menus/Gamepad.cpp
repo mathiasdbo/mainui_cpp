@@ -175,6 +175,28 @@ public:
 
 		return CMenuSwitch::KeyDown( key );
 	}
+
+	// Codex review (submodule round 1, follow-up fix): the D-pad guard
+	// above only closes ONE of CMenuSwitch's two state-changing paths -
+	// a mouse click resolves and applies its own new state entirely
+	// inside the base class's own KeyUp (Switch.cpp), with no virtual
+	// hook this subclass's KeyDown override ever sees. Reachability from
+	// a real Xbox pad is unlikely, but the code path exists regardless,
+	// and correctness here should not depend on nobody ever plugging in
+	// a mouse or triggering one through this project's own debug
+	// tooling. Checked AFTER the base class's own click handling rather
+	// than duplicating its private hit-testing logic - if it landed on
+	// Custom, revert to whatever scheme was active before the click.
+	bool KeyUp( int key ) override
+	{
+		int previousState = GetState();
+		bool handled = CMenuSwitch::KeyUp( key );
+
+		if( GetState() >= CONTROLLER_SCHEME_COUNT )
+			SetState( previousState );
+
+		return handled;
+	}
 };
 #endif // XASH_XBOX
 
