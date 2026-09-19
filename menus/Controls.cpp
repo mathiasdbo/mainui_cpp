@@ -103,8 +103,6 @@ private:
 
 void CMenuControls::UnbindCommand( const char *command )
 {
-	const size_t command_len = strlen( command );
-
 	for( int i = 0; ; i++ )
 	{
 		const char *str = EngFuncs::KeynumToString( i );
@@ -116,8 +114,29 @@ void CMenuControls::UnbindCommand( const char *command )
 		if( !b )
 			continue;
 
-		if( !strncmp( b, command, command_len ))
-			EngFuncs::KEY_SetBinding( i, "" );
+#if XASH_XBOX
+		// Codex review round 1: the stock strncmp() below is a PREFIX
+		// match, not an exact one - clearing "+attack" also matches any
+		// key bound to "+attack2" (its own bound string starts with the
+		// same seven characters), a real, if latent, bug carried over
+		// verbatim from stock Controls.cpp. It was rarely reachable on PC
+		// (nothing there normally binds both to related keys a player
+		// would think to compare), but every scheme here binds BOTH
+		// together by design (ControllerSchemes.cpp) and this screen's
+		// own X (Clear) makes wiping one keystroke away - so clearing Fire
+		// routinely wiped Secondary Fire too. Fixed with an exact,
+		// case-insensitive match, the same comparison LookupBoundKeys
+		// (KbActListModel.h) already uses. A genuine upstream-quality fix,
+		// guarded here per this ledger's own policy since it has not been
+		// submitted upstream yet.
+		if( stricmp( b, command ))
+			continue;
+#else
+		if( strncmp( b, command, strlen( command )))
+			continue;
+#endif // XASH_XBOX
+
+		EngFuncs::KEY_SetBinding( i, "" );
 	}
 }
 
@@ -126,13 +145,17 @@ void CMenuControls::UnbindCommand( const char *command )
 // most of it (movement, strafe, mouselook, voice chat, screenshots...) has
 // no real gamepad-button equivalent a Customize row could usefully show.
 // Filtered down to exactly the commands ControllerSchemes.cpp's own scheme
-// tables actually bind (the Standard/Southpaw/Legacy union), so every row
-// left on screen is something a scheme can set and this screen can edit.
+// tables actually bind - the REAL Standard/Southpaw/Legacy union (Codex
+// review round 1: an earlier version of this list only covered Standard's
+// own 15 commands, so a Legacy player - "pause"/"impulse 201"/"lastinv",
+// Legacy's own Back/D-pad-up/D-pad-down - saw those rows hidden entirely
+// while Standard-only rows like "save quick"/slot1-4 showed as unbound).
 static const char *s_padActions[] =
 {
 	"+attack", "+attack2", "+jump", "+duck", "+use", "+reload",
 	"invnext", "invprev", "impulse 100", "+speed",
 	"slot1", "slot2", "slot3", "slot4", "save quick",
+	"pause", "impulse 201", "lastinv",
 };
 
 static void FormatBoundKeyForRow( int key, char *out, size_t size )
@@ -400,16 +423,23 @@ CMenuControls::Hide
 B/Escape already reach this override via the base class's own KeyDown
 (CMenuBaseWindow - the same idiom Pause.cpp's own header comment
 documents: "Escape branch calls Hide() directly, never a separate
-handler"). Matches this screen's PC "Cancel" button semantics, not "OK"'s
-- every bind here takes effect live/immediately as each row is edited
-(unlike a slider's WriteCvar-on-Done pattern), so reverting to the
-last-written keyboard.cfg is this screen's only real "discard" mechanism,
-and B is this screen's only way to leave.
+handler"), and B is this screen's ONLY way to leave - there is no
+separate "OK" action on Xbox. Codex review round 1 caught an earlier
+version of this override matching the PC "Cancel" button instead
+(reverting to the last-written keyboard.cfg via "exec keyboard"): with
+no other exit path, every rebind/clear/scheme-reset this session made
+was silently discarded the moment the player backed out, exactly the
+class of bug this ledger's own "prove it by consequence" discipline
+exists to catch. Persists instead, the same "host_writeconfig" the base
+class's own SaveAndPopMenu() (CMenuBaseWindow, controls/BaseWindow.cpp)
+already runs before an "OK"-style close everywhere else in this
+codebase - every path off this screen now saves, matching what a
+player expects from the only Back a console UI gives them.
 =================
 */
 void CMenuControls::Hide( void )
 {
-	EngFuncs::ClientCmd( true, "exec keyboard\n" );
+	EngFuncs::ClientCmd( false, "host_writeconfig\n" );
 
 	CMenuFramework::Hide();
 }
@@ -453,8 +483,9 @@ void CMenuControls::_Init( void )
 #if XASH_XBOX
 	// XM.1 item 5's own A/X/Y/B model replaces the PC button row entirely -
 	// "Use Defaults" is superseded by Y (ApplySchemeCb, above), and "OK"/
-	// "Cancel" by B (Hide(), above), which already runs the same
-	// keyboard.cfg revert Cancel() does on PC.
+	// "Cancel" both by B (Hide(), above), which persists every change
+	// this screen made (host_writeconfig) since B is the only way to
+	// leave - not PC Cancel()'s own revert, corrected in review.
 	legend.SetRealCoord( 72, 438 );
 	legend.Add( LEGEND_A, L( "Reassign" ) );
 	legend.Add( LEGEND_X, L( "Clear" ) );
