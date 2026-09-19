@@ -1,0 +1,9 @@
+# Codex review (Resonance3D main-repo, XM.1 item 5): this submodule had no
+# .gitattributes at all, so nothing normalised line endings on commit - a
+# single tool writing one file in Windows text mode (Python's default
+# open(..., 'w') translates \n to the OS-native line ending) silently
+# converted a whole source file from LF to CRLF, which then merged as-is
+# twice before being caught. The main Resonance3D repo already carries this
+# exact rule for the same reason (see its own .gitattributes comment).
+*.cpp text eol=lf
+*.h   text eol=lf
