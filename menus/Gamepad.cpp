@@ -148,15 +148,54 @@ public:
 	{
 		if( UI::Key::IsLeftArrow( key ) || UI::Key::IsRightArrow( key ))
 		{
-			int count = CONTROLLER_SCHEME_COUNT + 1;
-			int state = GetState() + ( UI::Key::IsRightArrow( key ) ? 1 : -1 );
+			bool right = UI::Key::IsRightArrow( key );
+			int state = GetState();
 
-			SetState( ( state + count ) % count );
+			// Codex review (main-repo round 1): Custom is a DETECTED state
+			// (UI_DetectControllerScheme(), never something UI_ApplyControllerScheme()
+			// does anything with - its own header comment: "a garbage or
+			// SCHEME_CUSTOM argument is a no-op, by design"), not a real
+			// preset a player should be able to navigate onto - doing so
+			// left the switch showing "Custom" while every actual bind
+			// stayed whatever named scheme was active before, a real,
+			// confusing mismatch reopening this screen would immediately
+			// reveal (it would detect and show the OLD scheme again).
+			// Landing on Custom only ever happens via detection on entry;
+			// D-pad navigation skips it and only ever cycles the three
+			// real, selectable schemes.
+			if( state >= CONTROLLER_SCHEME_COUNT )
+				state = right ? 0 : CONTROLLER_SCHEME_COUNT - 1;
+			else
+				state = ( state + ( right ? 1 : -1 ) + CONTROLLER_SCHEME_COUNT ) % CONTROLLER_SCHEME_COUNT;
+
+			SetState( state );
 			PlayLocalSound( uiStatic.sounds[SND_MOVE] );
 			return true;
 		}
 
 		return CMenuSwitch::KeyDown( key );
+	}
+
+	// Codex review (submodule round 1, follow-up fix): the D-pad guard
+	// above only closes ONE of CMenuSwitch's two state-changing paths -
+	// a mouse click resolves and applies its own new state entirely
+	// inside the base class's own KeyUp (Switch.cpp), with no virtual
+	// hook this subclass's KeyDown override ever sees. Reachability from
+	// a real Xbox pad is unlikely, but the code path exists regardless,
+	// and correctness here should not depend on nobody ever plugging in
+	// a mouse or triggering one through this project's own debug
+	// tooling. Checked AFTER the base class's own click handling rather
+	// than duplicating its private hit-testing logic - if it landed on
+	// Custom, revert to whatever scheme was active before the click.
+	bool KeyUp( int key ) override
+	{
+		int previousState = GetState();
+		bool handled = CMenuSwitch::KeyUp( key );
+
+		if( GetState() >= CONTROLLER_SCHEME_COUNT )
+			SetState( previousState );
+
+		return handled;
 	}
 };
 #endif // XASH_XBOX
@@ -315,14 +354,21 @@ void CMenuGamePad::UpdateSchemeDisplay( void )
 	Q_strncpy( descriptionText, L( s_schemeDescriptions[scheme] ), sizeof( descriptionText ));
 	description.szName = descriptionText;
 
-	snprintf( mapLabelText[0], sizeof( mapLabelText[0] ), "Left trigger: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_JOY1 )));
+	// Codex review (main-repo round 1): these eight rows mix a fixed
+	// prefix with a live value - the prefix was a raw English literal,
+	// never passed through L(), so a German player would see an English
+	// "Left trigger:" ahead of a correctly-translated action name. Every
+	// prefix (and the Look/Move/Mixed role words below) now goes through
+	// L() too, matching the discipline every other new string in this
+	// item already follows.
+	snprintf( mapLabelText[0], sizeof( mapLabelText[0] ), "%s: %s", L( "Left trigger" ), FriendlyCommandName( EngFuncs::KEY_GetBinding( K_JOY1 )));
 
-	// Codex review round 2: joy_axis_binding's own left-stick pair is
-	// TWO characters (physical axes 0 and 1, in_joy.c:60-61) - reading
-	// only axis 0 reported "Look" or "Move" even for a mixed/malformed
-	// assignment (one axis moving, the other looking) that no scheme
-	// this fork ships ever produces, but a hand-edited config could.
-	// Both must agree before calling it either one.
+	// joy_axis_binding's own left-stick pair is TWO characters (physical
+	// axes 0 and 1, in_joy.c:60-61) - reading only axis 0 reported "Look"
+	// or "Move" even for a mixed/malformed assignment (one axis moving,
+	// the other looking) that no scheme this fork ships ever produces,
+	// but a hand-edited config could. Both must agree before calling it
+	// either one (Codex review round 2, main-repo).
 	const char *axisBinding = EngFuncs::GetCvarString( "joy_axis_binding" );
 	bool axis0Looks = axisBinding[0] == 'y' || axisBinding[0] == 'p';
 	bool axis1Looks = axisBinding[1] == 'y' || axisBinding[1] == 'p';
@@ -330,27 +376,28 @@ void CMenuGamePad::UpdateSchemeDisplay( void )
 	bool axis1Moves = axisBinding[1] == 's' || axisBinding[1] == 'f';
 	const char *leftStickRole;
 	if( axis0Looks && axis1Looks )
-		leftStickRole = "Look";
+		leftStickRole = L( "Look" );
 	else if( axis0Moves && axis1Moves )
-		leftStickRole = "Move";
+		leftStickRole = L( "Move" );
 	else
-		leftStickRole = "Mixed";
-	snprintf( mapLabelText[1], sizeof( mapLabelText[1] ), "Left stick: %s", leftStickRole );
+		leftStickRole = L( "Mixed" );
+	snprintf( mapLabelText[1], sizeof( mapLabelText[1] ), "%s: %s", L( "Left stick" ), leftStickRole );
 
-	snprintf( mapLabelText[2], sizeof( mapLabelText[2] ), "Stick click: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_LSTICK )));
+	snprintf( mapLabelText[2], sizeof( mapLabelText[2] ), "%s: %s", L( "Stick click" ), FriendlyCommandName( EngFuncs::KEY_GetBinding( K_LSTICK )));
 
-	// Codex review round 2: a single "D-pad: %s" line read only K_DPAD_UP,
-	// but every scheme table (ControllerSchemes.cpp) binds all four
-	// directions independently and differently - Standard showed only
-	// "Weapon Category 1", hiding categories 2-4 entirely; Legacy showed
-	// only "Spray Logo", hiding its three weapon-navigation binds. Each
-	// direction gets its own row instead of one falsely-summarized line.
-	snprintf( mapLabelText[3], sizeof( mapLabelText[3] ), "D-pad up: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_DPAD_UP )));
-	snprintf( mapLabelText[4], sizeof( mapLabelText[4] ), "D-pad right: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_DPAD_RIGHT )));
-	snprintf( mapLabelText[5], sizeof( mapLabelText[5] ), "D-pad down: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_DPAD_DOWN )));
-	snprintf( mapLabelText[6], sizeof( mapLabelText[6] ), "D-pad left: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_DPAD_LEFT )));
+	// A single "D-pad: %s" line read only K_DPAD_UP, but every scheme
+	// table (ControllerSchemes.cpp) binds all four directions
+	// independently and differently - Standard showed only "Weapon
+	// Category 1", hiding categories 2-4 entirely; Legacy showed only
+	// "Spray Logo", hiding its three weapon-navigation binds. Each
+	// direction gets its own row instead of one falsely-summarized line
+	// (Codex review round 2, main-repo).
+	snprintf( mapLabelText[3], sizeof( mapLabelText[3] ), "%s: %s", L( "D-pad up" ), FriendlyCommandName( EngFuncs::KEY_GetBinding( K_DPAD_UP )));
+	snprintf( mapLabelText[4], sizeof( mapLabelText[4] ), "%s: %s", L( "D-pad right" ), FriendlyCommandName( EngFuncs::KEY_GetBinding( K_DPAD_RIGHT )));
+	snprintf( mapLabelText[5], sizeof( mapLabelText[5] ), "%s: %s", L( "D-pad down" ), FriendlyCommandName( EngFuncs::KEY_GetBinding( K_DPAD_DOWN )));
+	snprintf( mapLabelText[6], sizeof( mapLabelText[6] ), "%s: %s", L( "D-pad left" ), FriendlyCommandName( EngFuncs::KEY_GetBinding( K_DPAD_LEFT )));
 
-	snprintf( mapLabelText[7], sizeof( mapLabelText[7] ), "Back: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_BACK_BUTTON )));
+	snprintf( mapLabelText[7], sizeof( mapLabelText[7] ), "%s: %s", L( "Back" ), FriendlyCommandName( EngFuncs::KEY_GetBinding( K_BACK_BUTTON )));
 
 	for( int i = 0; i < V_ARRAYSIZE( mapLabelText ); i++ )
 		mapLabels[i].szName = mapLabelText[i];
