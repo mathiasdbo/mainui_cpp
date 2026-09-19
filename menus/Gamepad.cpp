@@ -194,8 +194,8 @@ private:
 	// own gamma test image already proves for a static diagram picture.
 	CMenuBitmap diagram;
 
-	CMenuAction mapLabels[5];
-	char mapLabelText[5][64];
+	CMenuAction mapLabels[8];
+	char mapLabelText[8][64];
 
 	// XM.1's own "do not use AddButton(EDefaultBtns)" call
 	// (Configuration.cpp:96-135's own precedent, this ledger's own
@@ -317,15 +317,42 @@ void CMenuGamePad::UpdateSchemeDisplay( void )
 
 	snprintf( mapLabelText[0], sizeof( mapLabelText[0] ), "Left trigger: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_JOY1 )));
 
+	// Codex review round 2: joy_axis_binding's own left-stick pair is
+	// TWO characters (physical axes 0 and 1, in_joy.c:60-61) - reading
+	// only axis 0 reported "Look" or "Move" even for a mixed/malformed
+	// assignment (one axis moving, the other looking) that no scheme
+	// this fork ships ever produces, but a hand-edited config could.
+	// Both must agree before calling it either one.
 	const char *axisBinding = EngFuncs::GetCvarString( "joy_axis_binding" );
-	bool leftStickLooks = axisBinding[0] == 'y' || axisBinding[0] == 'p';
-	snprintf( mapLabelText[1], sizeof( mapLabelText[1] ), "Left stick: %s", leftStickLooks ? "Look" : "Move" );
+	bool axis0Looks = axisBinding[0] == 'y' || axisBinding[0] == 'p';
+	bool axis1Looks = axisBinding[1] == 'y' || axisBinding[1] == 'p';
+	bool axis0Moves = axisBinding[0] == 's' || axisBinding[0] == 'f';
+	bool axis1Moves = axisBinding[1] == 's' || axisBinding[1] == 'f';
+	const char *leftStickRole;
+	if( axis0Looks && axis1Looks )
+		leftStickRole = "Look";
+	else if( axis0Moves && axis1Moves )
+		leftStickRole = "Move";
+	else
+		leftStickRole = "Mixed";
+	snprintf( mapLabelText[1], sizeof( mapLabelText[1] ), "Left stick: %s", leftStickRole );
 
 	snprintf( mapLabelText[2], sizeof( mapLabelText[2] ), "Stick click: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_LSTICK )));
-	snprintf( mapLabelText[3], sizeof( mapLabelText[3] ), "D-pad: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_DPAD_UP )));
-	snprintf( mapLabelText[4], sizeof( mapLabelText[4] ), "Back: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_BACK_BUTTON )));
 
-	for( int i = 0; i < 5; i++ )
+	// Codex review round 2: a single "D-pad: %s" line read only K_DPAD_UP,
+	// but every scheme table (ControllerSchemes.cpp) binds all four
+	// directions independently and differently - Standard showed only
+	// "Weapon Category 1", hiding categories 2-4 entirely; Legacy showed
+	// only "Spray Logo", hiding its three weapon-navigation binds. Each
+	// direction gets its own row instead of one falsely-summarized line.
+	snprintf( mapLabelText[3], sizeof( mapLabelText[3] ), "D-pad up: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_DPAD_UP )));
+	snprintf( mapLabelText[4], sizeof( mapLabelText[4] ), "D-pad right: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_DPAD_RIGHT )));
+	snprintf( mapLabelText[5], sizeof( mapLabelText[5] ), "D-pad down: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_DPAD_DOWN )));
+	snprintf( mapLabelText[6], sizeof( mapLabelText[6] ), "D-pad left: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_DPAD_LEFT )));
+
+	snprintf( mapLabelText[7], sizeof( mapLabelText[7] ), "Back: %s", FriendlyCommandName( EngFuncs::KEY_GetBinding( K_BACK_BUTTON )));
+
+	for( int i = 0; i < V_ARRAYSIZE( mapLabelText ); i++ )
 		mapLabels[i].szName = mapLabelText[i];
 }
 
@@ -511,7 +538,7 @@ void CMenuGamePad::_Init( void )
 	diagram.SetRect( 560, 220, 340, 253 );
 	diagram.SetPicture( "gfx/shell/duke" );
 
-	for( int i = 0; i < 5; i++ )
+	for( int i = 0; i < V_ARRAYSIZE( mapLabels ); i++ )
 	{
 		mapLabels[i].iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
 		mapLabels[i].colorBase = uiColorHelp;
@@ -519,12 +546,20 @@ void CMenuGamePad::_Init( void )
 		mapLabels[i].SetRect( 560, 480 + i * 24, 400, 22 );
 	}
 
+	// Heap-allocated and tracked in m_apBtns here (ownership/shutdown
+	// bookkeeping, independent of focus order), but NOT registered via
+	// AddItem yet - Codex review round 2: an earlier version called
+	// AddItem() on these two immediately, before heading/schemeSwitch
+	// existed as registered items below, so pad focus order (registration
+	// order, ItemsHolder.cpp - divergence #66's own already-established
+	// lesson) put Settings/Customize BEFORE the scheme switch despite the
+	// switch sitting visually above both. AddItem() itself is called
+	// below, in the correct visual sequence.
 	settingsBtn = new CMenuPicButton();
 	settingsBtn->SetNameAndStatus( L( "Settings..." ), L( "Look sensitivity, invert look, vibration" ) );
 	settingsBtn->onReleased = UI_ControllerSettings_Menu;
 	settingsBtn->iFlags |= QMF_NOTIFY;
 	settingsBtn->SetCoord( 72, 350 + m_iBtnsNum * 50 );
-	AddItem( *settingsBtn );
 	m_apBtns[m_iBtnsNum++] = settingsBtn;
 
 	customizeBtn = new CMenuPicButton();
@@ -532,7 +567,6 @@ void CMenuGamePad::_Init( void )
 	customizeBtn->onReleased = UI_Controls_Menu;
 	customizeBtn->iFlags |= QMF_NOTIFY;
 	customizeBtn->SetCoord( 72, 350 + m_iBtnsNum * 50 );
-	AddItem( *customizeBtn );
 	m_apBtns[m_iBtnsNum++] = customizeBtn;
 
 	done.SetNameAndStatus( L( "Done" ), nullptr );
@@ -548,13 +582,17 @@ void CMenuGamePad::_Init( void )
 
 	// Registration order is pad focus order (ItemsHolder.cpp), independent
 	// of on-screen position - divergence #66's own already-established
-	// lesson, applied here rather than re-discovered.
+	// lesson, applied here rather than re-discovered. Matches the visual
+	// top-to-bottom layout exactly: scheme switch, then the two buttons
+	// below it, then Done.
 	AddItem( heading );
 	AddItem( schemeSwitch );
 	AddItem( description );
 	AddItem( diagram );
-	for( int i = 0; i < 5; i++ )
+	for( int i = 0; i < V_ARRAYSIZE( mapLabels ); i++ )
 		AddItem( mapLabels[i] );
+	AddItem( *settingsBtn );
+	AddItem( *customizeBtn );
 	AddItem( done );
 	AddItem( legend );
 }
