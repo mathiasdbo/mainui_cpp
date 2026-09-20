@@ -64,8 +64,10 @@ void CMenuOptions::_Init( void )
 	msgBox.Link( this );
 
 	AddItem( banner );
+#if !XASH_XBOX
 	AddButton( L( "Controls" ), L( "Change keyboard and mouse settings" ),
 		PC_CONTROLS, UI_Controls_Menu, QMF_NOTIFY );
+#endif // !XASH_XBOX
 	AddButton( L( "GameUI_Audio" ), L( "Change sound volume and quality" ),
 		PC_AUDIO, UI_Audio_Menu, QMF_NOTIFY );
 #if XASH_XBOX
@@ -80,8 +82,11 @@ void CMenuOptions::_Init( void )
 	// texture filtering, a read-only video-output row) - the old text
 	// promised "screen size" and "video mode" controls item 7 found do
 	// not do what they say on Xbox and dropped (fork-plan.md item 7's own
-	// note).
-	AddButton( L( "GameUI_Video" ), L( "Change brightness and gamma" ),
+	// note). Label follows the "Controller" row's own precedent below -
+	// item 7's own screen has been the rebuilt one since 2026-09-17, so
+	// nothing is left for this rename to wait on any more (fork-plan.md
+	// item 4's own "the next honest step once 5 or 7 lands" note).
+	AddButton( L( "Display" ), L( "Change brightness and gamma" ),
 		PC_VIDEO, UI_VidOptions_Menu, QMF_NOTIFY );
 #else
 	AddButton( L( "GameUI_Video" ), L( "Change screen size, video mode and gamma" ),
@@ -103,17 +108,21 @@ void CMenuOptions::_Init( void )
 		PC_GAMEPAD, UI_GamePad_Menu, QMF_NOTIFY, 'g' );
 #endif // XASH_XBOX
 #if XASH_XBOX
-	// XM.1 (fork-plan.md): "Video" stays pointed at its stock screen for
-	// now - renaming it to "Display" belongs to whichever change actually
-	// rebuilds it (item 7), not this one; doing it here first would label
-	// a button with a screen that does not exist yet. "Controller" above
-	// is that same rule applied once item 5 actually landed - GamePad.cpp
-	// (this row's own target) already is the rebuilt screen now, so its
-	// label already follows. This screen's OWN "Controls" button (line
-	// ~67, PC_CONTROLS) is unrelated - it opens the keyboard/mouse screen
-	// directly, not through the renamed row here, and stays as-is. "Game"
-	// has no such dependency either - GameOptions.cpp is already reshaped
-	// for Xbox.
+	// XM.1 item 4/5 (fork-plan.md): the standalone "Controls" button
+	// above is hidden on Xbox now, not merely left "as-is" - an earlier
+	// version of this comment called it "unrelated" to the Controller
+	// rework and left it pointing straight at UI_Controls_Menu, which
+	// was only true before Controls.cpp itself became the Controller
+	// screen's own Customize sub-screen (item 5). Once that rewrite
+	// landed, this button was a second, stale-labelled door
+	// ("Change keyboard and mouse settings") straight into the same
+	// pad-filtered, A/X/Y/B Customize interface Controller's own
+	// Customize... button already reaches properly - confusing, and
+	// inconsistent with how this fork already handles every other
+	// screen a new one absorbs (Video.cpp's own hub, hidden once
+	// VideoOptions.cpp replaced it; AdvancedControls.cpp, hidden once
+	// Game absorbed its rows). "Game" has no such dependency - GameOptions.cpp
+	// is already reshaped for Xbox.
 	//
 	// Codex review, post-merge, round 2: no WON strip picture ever means
 	// "Game", so this can't reuse any EDefaultBtns id - not PC_ADV_OPT
