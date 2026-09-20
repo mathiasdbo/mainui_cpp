@@ -68,6 +68,18 @@ void CMenuOptions::_Init( void )
 	AddButton( L( "Controls" ), L( "Change keyboard and mouse settings" ),
 		PC_CONTROLS, UI_Controls_Menu, QMF_NOTIFY );
 #endif // !XASH_XBOX
+#if XASH_XBOX
+	// XM.1 item 4/5: Controller must be the FIRST row (fork-plan.md's own
+	// order, `:3234` - "Controller / Audio / Display / Game / Done"), not
+	// wherever the old Joystick row happened to sit - AddButton positions
+	// each button by registration order (Framework.cpp:120-123), so this
+	// call has to come before Audio/Display's, independent of where the
+	// PC-only Joystick row below it stays. PC_GAMEPAD stays the right icon
+	// either way (a joystick, not a mismatched one like PC_CUSTOMIZE/"Game"
+	// below) - only the position and text change from PC's own layout.
+	AddButton( L( "Controller" ), L( "Change controller scheme and settings" ),
+		PC_GAMEPAD, UI_GamePad_Menu, QMF_NOTIFY, 'g' );
+#endif // XASH_XBOX
 	AddButton( L( "GameUI_Audio" ), L( "Change sound volume and quality" ),
 		PC_AUDIO, UI_Audio_Menu, QMF_NOTIFY );
 #if XASH_XBOX
@@ -96,17 +108,10 @@ void CMenuOptions::_Init( void )
 	AddButton( L( "Touch" ), L( "Change touch settings and buttons" ),
 		PC_TOUCH, UI_Touch_Menu, QMF_NOTIFY, 't' );
 #endif // !XASH_XBOX
-#if XASH_XBOX
-	// XM.1 item 5: this is that rebuild - Gamepad.cpp is now the
-	// Controller screen, so this row's own label follows it. PC_GAMEPAD
-	// stays the right icon either way (a joystick, not a mismatched one
-	// like PC_CUSTOMIZE/"Game" below) - only the text changes.
-	AddButton( L( "Controller" ), L( "Change controller scheme and settings" ),
-		PC_GAMEPAD, UI_GamePad_Menu, QMF_NOTIFY, 'g' );
-#else
+#if !XASH_XBOX
 	AddButton( L( "GameUI_Joystick" ), L( "Change gamepad axis and button settings" ),
 		PC_GAMEPAD, UI_GamePad_Menu, QMF_NOTIFY, 'g' );
-#endif // XASH_XBOX
+#endif // !XASH_XBOX
 #if XASH_XBOX
 	// XM.1 item 4/5 (fork-plan.md): the standalone "Controls" button
 	// above is hidden on Xbox now, not merely left "as-is" - an earlier
