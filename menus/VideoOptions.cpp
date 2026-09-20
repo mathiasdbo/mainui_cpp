@@ -236,7 +236,11 @@ void CMenuVidOptions::_Init( void )
 	testImage.SetPicture( ART_GAMMA );
 
 	heading.iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
-	heading.szName = L( "GameUI_Video" );
+	// Codex review: Configuration.cpp's own Options row renamed to
+	// "Display" (fork-plan.md item 4/divergences.md #87) - the heading
+	// on the screen it opens has to follow, or a player selects
+	// "Display" and lands on a screen still titled "Video".
+	heading.szName = L( "Display" );
 	heading.colorBase = uiColorHeading;
 	heading.SetCharSize( QM_BIGFONT );
 	heading.SetRect( 72, 200, 400, 32 );
