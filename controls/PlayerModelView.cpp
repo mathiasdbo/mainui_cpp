@@ -17,6 +17,13 @@ GNU General Public License for more details.
 #include "BaseMenu.h"
 #include "PlayerModelView.h"
 
+#if defined( NXDK )
+// Resonance3D: this menu memsets and fills the engine's own cl_entity_t
+// (EngFuncs::GetPlayerModel), so on the Xbox it must see the engine's
+// 16-entry-history layout (engine/client/dll_int/cl_game.c asserts the same).
+static_assert( sizeof( cl_entity_t ) == 1656, "Xbox cl_entity_t must match the engine's" );
+#endif
+
 CMenuPlayerModelView::CMenuPlayerModelView() : CMenuBaseItem()
 {
 	memset( &refdef, 0, sizeof( refdef ) );
