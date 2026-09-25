@@ -59,7 +59,16 @@ typedef struct
 
 typedef struct cl_entity_s cl_entity_t;
 
+// Resonance3D (docs/r3d/divergences.md #116): on the Original Xbox (NXDK)
+// the engine and the SDK client use a 16-entry position history; this
+// menu reads and writes the engine's own player-model entity
+// (PlayerModelView.cpp, EngFuncs::GetPlayerModel), so its layout must
+// match. PlayerModelView.cpp asserts the size.
+#if defined( NXDK )
+#define HISTORY_MAX		16		// Must be power of 2
+#else
 #define HISTORY_MAX		64		// Must be power of 2
+#endif
 #define HISTORY_MASK	( HISTORY_MAX - 1 )
 
 #include "entity_state.h"
