@@ -131,13 +131,12 @@ void CMenuBackgroundBitmap::Draw()
 		return;
 	}
 
-	// X9-X follow-up: (re)load whatever ReleaseBackground() dropped for a
-	// map load. Only the first ever call probes both profiles; after that
-	// it just reloads the side s_state already names.
-	if( !EnsureBackground() )
+	// Divergence #127: discover profiles before resolving a changed
+	// preference, but do not reload a released profile until after it.
+	if( !s_bLoaded )
 	{
-		DrawColor();
-		return;
+		s_bLoaded = true;
+		LoadBackground();
 	}
 
 	if( FBitSet( ui_prefer_won_background->flags, FCVAR_CHANGED ))
@@ -180,6 +179,13 @@ void CMenuBackgroundBitmap::Draw()
 		// because the cvar is set by user, tell them if chosen background is not available
 		if( ui_prefer_won_background->value && s_state != DRAW_WON )
 			UI_ShowMessageBox( L( "WON background is not available" ));
+	}
+
+	// A failed restore must not prevent switching to another profile.
+	if( !EnsureBackground() )
+	{
+		DrawColor();
+		return;
 	}
 
 	Point p;
@@ -507,17 +513,12 @@ void CMenuBackgroundBitmap::ReleaseBackground()
 }
 
 // X9-X follow-up: called from Draw(), after the bForceColor, in-game and
-// szPic early-outs, before the ui_prefer_won_background flip handler.
+// szPic early-outs and the ui_prefer_won_background flip handler.
 // Returns false only when the resident profile failed to reload - that
 // frame falls back to DrawColor() and the next Draw() retries.
 bool CMenuBackgroundBitmap::EnsureBackground()
 {
-	if( !s_bLoaded )
-	{
-		s_bLoaded = true;
-		LoadBackground(); // first call ever: probe both profiles, prefer, free the loser
-	}
-	else if( s_state == DRAW_WON && !s_WONBackground.hImage )
+	if( s_state == DRAW_WON && !s_WONBackground.hImage )
 	{
 		LoadWONBackground( true ) || LoadWONBackground( false );
 	}

@@ -190,8 +190,10 @@ void CFontManager::RestoreFonts()
 
 int CFontManager::GetEllipsisWide(HFont font)
 {
-	if( m_Fonts.IsValidIndex( font - 1 ) )
-		return m_Fonts[font-1]->GetEllipsisWide();
+	// Divergence #127: layout can be the first use after a map released fonts.
+	CBaseFont *pFont = GetIFontFromHandle( font );
+	if( pFont )
+		return pFont->GetEllipsisWide();
 	return 0;
 }
 
