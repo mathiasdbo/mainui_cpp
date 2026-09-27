@@ -23,6 +23,7 @@ GNU General Public License for more details.
 bool CMenuBackgroundBitmap::s_bEnableLogoMovie = false;
 bool CMenuBackgroundBitmap::s_bGameHasSteamBackground = false;
 bool CMenuBackgroundBitmap::s_bGameHasWONBackground = false;
+bool CMenuBackgroundBitmap::s_bLoaded = false;
 CMenuBackgroundBitmap::bstate_e CMenuBackgroundBitmap::s_state;
 
 CMenuBackgroundBitmap::bimage_t CMenuBackgroundBitmap::s_WONBackground;
@@ -127,6 +128,15 @@ void CMenuBackgroundBitmap::Draw()
 	if( szPic )
 	{
 		UI_DrawPic( m_scPos, m_scSize, uiColorWhite, szPic );
+		return;
+	}
+
+	// X9-X follow-up: (re)load whatever ReleaseBackground() dropped for a
+	// map load. Only the first ever call probes both profiles; after that
+	// it just reloads the side s_state already names.
+	if( !EnsureBackground() )
+	{
+		DrawColor();
 		return;
 	}
 
@@ -484,4 +494,42 @@ void CMenuBackgroundBitmap::LoadBackground()
 		FreeSteamBackground();
 	else if( s_state == DRAW_STEAM )
 		FreeWONBackground();
+}
+
+// X9-X follow-up: called from UI_SetActiveMenu (BaseMenu.cpp) when a map
+// loads on a low-memory build. Drops whichever profile is resident;
+// s_state and s_bGameHas* stay put, so EnsureBackground() below knows what
+// to reload without re-probing the filesystem.
+void CMenuBackgroundBitmap::ReleaseBackground()
+{
+	FreeSteamBackground();
+	FreeWONBackground();
+}
+
+// X9-X follow-up: called from Draw(), after the bForceColor, in-game and
+// szPic early-outs, before the ui_prefer_won_background flip handler.
+// Returns false only when the resident profile failed to reload - that
+// frame falls back to DrawColor() and the next Draw() retries.
+bool CMenuBackgroundBitmap::EnsureBackground()
+{
+	if( !s_bLoaded )
+	{
+		s_bLoaded = true;
+		LoadBackground(); // first call ever: probe both profiles, prefer, free the loser
+	}
+	else if( s_state == DRAW_WON && !s_WONBackground.hImage )
+	{
+		LoadWONBackground( true ) || LoadWONBackground( false );
+	}
+	else if( s_state == DRAW_STEAM && s_SteamBackground.Count() == 0 )
+	{
+		LoadSteamBackground( true ) || LoadSteamBackground( false );
+	}
+
+	if( s_state == DRAW_WON )
+		return s_WONBackground.hImage != 0;
+	if( s_state == DRAW_STEAM )
+		return s_SteamBackground.Count() != 0;
+
+	return true; // DRAW_COLOR never needs art
 }
