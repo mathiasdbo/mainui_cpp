@@ -614,6 +614,22 @@ void UI_CloseMenu( void )
 // =====================================================================
 
 
+// X9-X follow-up (live-boot fix): set by UI_SetActiveMenu below instead of
+// releasing synchronously. UI_SetActiveMenu(false) runs from deep inside
+// CL_ParseServerData's network-parse stack (engine/client/parse/cl_parse.c),
+// not from the render/update loop - calling PIC_Free (-> GL_FreeImage ->
+// ref/nv2a's GL_FindTexture -> nv2a_tex_check_name) synchronously from
+// there crashed live in xemu every time: nv2a_tex_check_name's strlen ran
+// away reading heap memory that held an unrelated, already-freed string
+// (a sound precache path, e.g. "items/gunpickup2.wav"), consistent with
+// the renderer's texture-name lookup never having been exercised from a
+// packet-parse call stack before. UI_UpdateMenu runs every frame, in game
+// included (engine/client/cl_view.c:564), the same safe context VidInit's
+// own font (re)builds already run from - so the actual release is done on
+// the next tick here instead, still before the menu can draw anything for
+// the new map.
+static bool s_bPendingLowMemRelease = false;
+
 /*
 =================
 UI_UpdateMenu
@@ -623,6 +639,13 @@ void UI_UpdateMenu( float flTime )
 {
 	if( !uiStatic.initialized )
 		return;
+
+	if( s_bPendingLowMemRelease )
+	{
+		s_bPendingLowMemRelease = false;
+		g_FontMgr->ReleaseFonts();
+		CMenuBackgroundBitmap::ReleaseBackground();
+	}
 
 	static bool loadStuff = true;
 
@@ -885,11 +908,11 @@ void UI_SetActiveMenu( int fActive )
 		// CL_ParseServerData's UI_SetActiveMenu( cl.background ) before the
 		// world upload, and SCR_BeginLoadingPlaque leaving the menu for a
 		// map (engine/client/parse/cl_parse.c, engine/client/cl_scrn.c).
+		// The actual release is deferred to UI_UpdateMenu above - see
+		// s_bPendingLowMemRelease's own comment for why calling it here,
+		// synchronously, crashed live.
 		if( uiStatic.lowmemory && !EngFuncs::ClientInGame() )
-		{
-			g_FontMgr->ReleaseFonts();
-			CMenuBackgroundBitmap::ReleaseBackground();
-		}
+			s_bPendingLowMemRelease = true;
 	}
 }
 
