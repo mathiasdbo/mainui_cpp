@@ -615,19 +615,17 @@ void UI_CloseMenu( void )
 
 
 // X9-X follow-up (live-boot fix): set by UI_SetActiveMenu below instead of
-// releasing synchronously. UI_SetActiveMenu(false) runs from deep inside
+// releasing synchronously - UI_SetActiveMenu(false) runs from deep inside
 // CL_ParseServerData's network-parse stack (engine/client/parse/cl_parse.c),
-// not from the render/update loop - calling PIC_Free (-> GL_FreeImage ->
-// ref/nv2a's GL_FindTexture -> nv2a_tex_check_name) synchronously from
-// there crashed live in xemu every time: nv2a_tex_check_name's strlen ran
-// away reading heap memory that held an unrelated, already-freed string
-// (a sound precache path, e.g. "items/gunpickup2.wav"), consistent with
-// the renderer's texture-name lookup never having been exercised from a
-// packet-parse call stack before. UI_UpdateMenu runs every frame, in game
-// included (engine/client/cl_view.c:564), the same safe context VidInit's
-// own font (re)builds already run from - so the actual release is done on
-// the next tick here instead, still before the menu can draw anything for
-// the new map.
+// not from the render/update loop. UI_UpdateMenu runs every frame, in game
+// included (engine/client/cl_view.c:564), the same context VidInit's own
+// font builds and CMenuBackgroundBitmap::Draw()'s EnsureBackground() both
+// already run from safely - so the actual release still happens no later
+// than the old synchronous call would have, just from a place that isn't
+// mid-packet-parse. This alone does NOT explain the crash a synchronous
+// ReleaseFonts() call hit live (see that function's own call site below,
+// removed) - deferring the call changed nothing there; the deferred point
+// is kept because it is the architecturally correct one regardless.
 static bool s_bPendingLowMemRelease = false;
 
 /*
@@ -643,7 +641,21 @@ void UI_UpdateMenu( float flTime )
 	if( s_bPendingLowMemRelease )
 	{
 		s_bPendingLowMemRelease = false;
-		g_FontMgr->ReleaseFonts();
+		// X9-X follow-up (live-boot fix, round 2): g_FontMgr->ReleaseFonts()
+		// dropped here - confirmed live in xemu, twice, independent of call
+		// context (both the original synchronous call from UI_SetActiveMenu
+		// and this deferred UI_UpdateMenu call hang identically): freeing
+		// the five font-atlas textures via DeleteAllFonts() -> ~CBaseFont()
+		// -> PIC_Free() -> GL_FreeImage() -> ref/nv2a's GL_FindTexture() ->
+		// nv2a_tex_check_name() runs away inside strlen(), reading heap
+		// memory that holds an unrelated, already-freed string (observed:
+		// a sound precache path, "items/gunpickup2.wav") instead of the
+		// live CBaseFont's own m_szTextureName. Not a mainui-side ordering
+		// bug - ref/nv2a's texture-name lookup has never been exercised
+		// against a live font-atlas free before this topic. Out of scope
+		// to fix here (ref/nv2a is not part of this change); only the
+		// background - a completely separate PIC_Load/PIC_Free path,
+		// verified live to boot cleanly - is released.
 		CMenuBackgroundBitmap::ReleaseBackground();
 	}
 
@@ -899,18 +911,20 @@ void UI_SetActiveMenu( int fActive )
 		UI_CloseMenu();
 		uiStatic.nextFrameActive = false; // don't call main menu next frame
 
-		// X9-X follow-up: free the menu's font atlases, font file and
-		// background while a map is loaded (low-memory builds only).
-		// uiStatic.lowmemory is host_lowmemorymode (set by XASH_LOW_MEMORY
-		// on Xbox), so PC builds are unchanged. !ClientInGame() excludes a
-		// pause/resume in game (cls.state stays ca_active there) - this
-		// branch is reached on every map load, through both
-		// CL_ParseServerData's UI_SetActiveMenu( cl.background ) before the
-		// world upload, and SCR_BeginLoadingPlaque leaving the menu for a
-		// map (engine/client/parse/cl_parse.c, engine/client/cl_scrn.c).
-		// The actual release is deferred to UI_UpdateMenu above - see
-		// s_bPendingLowMemRelease's own comment for why calling it here,
-		// synchronously, crashed live.
+		// X9-X follow-up: free the menu's Steam/WON background tiles while
+		// a map is loaded (low-memory builds only). uiStatic.lowmemory is
+		// host_lowmemorymode (set by XASH_LOW_MEMORY on Xbox), so PC builds
+		// are unchanged. !ClientInGame() excludes a pause/resume in game
+		// (cls.state stays ca_active there) - this branch is reached on
+		// every map load, through both CL_ParseServerData's
+		// UI_SetActiveMenu( cl.background ) before the world upload, and
+		// SCR_BeginLoadingPlaque leaving the menu for a map
+		// (engine/client/parse/cl_parse.c, engine/client/cl_scrn.c). The
+		// actual release is deferred to UI_UpdateMenu above (see
+		// s_bPendingLowMemRelease's own comment). The font atlases are
+		// deliberately NOT released here - see that same comment for the
+		// confirmed live crash in ref/nv2a's texture-name lookup when they
+		// are.
 		if( uiStatic.lowmemory && !EngFuncs::ClientInGame() )
 			s_bPendingLowMemRelease = true;
 	}
