@@ -614,16 +614,17 @@ void UI_CloseMenu( void )
 // =====================================================================
 
 
-// X9-X follow-up (live-boot fix): set by UI_SetActiveMenu below when a map
-// loads on a low-memory build. UI_UpdateMenu's consumption of this flag
-// (below) no longer calls either release function - both g_FontMgr's font
-// atlases (round 2) and CMenuBackgroundBitmap's background (round 3) were
-// confirmed live to hang inside ref/nv2a's texture-free path - see that
-// block's own comment for the evidence. The flag and this deferred
-// consumption point are kept inert rather than removed: UI_UpdateMenu runs
-// every frame, in game included (engine/client/cl_view.c:564), which is
-// the correct place to call a release from (not mid-packet-parse, where
-// UI_SetActiveMenu(false) itself runs) once ref/nv2a's bug is fixed.
+// X9-X follow-up: set by UI_SetActiveMenu below on a low-memory map load,
+// consumed at the top of the next UI_UpdateMenu. UI_SetActiveMenu(false)
+// runs from inside CL_ParseServerData (engine/client/parse/cl_parse.c:928),
+// halfway through parsing the server's packet; UI_UpdateMenu runs once per
+// drawn frame, the loading plaque's included (SCR_UpdateScreen ->
+// V_PostRender, engine/client/cl_scrn.c:686,704; cl_view.c:564), which is
+// where the menu already does its other texture work. A plain frame
+// boundary, not a workaround: the release is safe from either place (it
+// was once blamed for a crash in ref/nv2a's name lookup; that boot was
+// running out of memory on a stale disc - see docs/r3d/divergences.md
+// #127).
 static bool s_bPendingLowMemRelease = false;
 
 /*
@@ -639,34 +640,8 @@ void UI_UpdateMenu( float flTime )
 	if( s_bPendingLowMemRelease )
 	{
 		s_bPendingLowMemRelease = false;
-		// X9-X follow-up (live-boot fix, round 3): NEITHER release call runs
-		// here any more. Round 2 dropped g_FontMgr->ReleaseFonts() after a
-		// live xemu crash (DeleteAllFonts() -> ~CBaseFont() -> PIC_Free() ->
-		// GL_FreeImage() -> ref/nv2a's GL_FindTexture() -> a runaway
-		// nv2a_tex_check_name()/Q_strlen() reading unrelated freed heap) and
-		// kept CMenuBackgroundBitmap::ReleaseBackground() as a believed-safe
-		// remainder - a separate PIC_Load/PIC_Free path exercised earlier
-		// without a crash. Re-verified live against a real map load
-		// (disposal.mpak, r_refdll nv2a) for this round: with ONLY
-		// ReleaseBackground() called, host.framecount (read live over GDB)
-		// advances normally right after boot, then stops advancing within
-		// seconds of the map load reaching this call - the guest CPU parks
-		// in the kernel idle thread and never returns, the same symptom the
-		// font-atlas crash produced. A live breakpoint trace at
-		// ReleaseBackground's own entry shows it enter and call
-		// FreeWONBackground normally (5 single-stepped instructions, no
-		// runaway visible there), but the frame counter is already frozen
-		// by the next read afterward - so the fault is further down this
-		// same PIC_Free()/GL_FreeImage()/ref-nv2a chain, just not reached by
-		// the font atlases' particular texture names before this round.
-		// This says the bug is state-dependent (arena/hash-table layout at
-		// the moment of the free), not font-atlas-specific - so no PIC_Free
-		// of a menu texture from this call site is safe until ref/nv2a's
-		// texture-name lookup itself is fixed (out of scope here). Calling
-		// neither release leaves the 4.59 MiB documented in
-		// docs/r3d/divergences.md #127 resident; s_bPendingLowMemRelease is
-		// kept (rather than removed) as the one lifecycle hook a real
-		// ref/nv2a fix can hang a release back off later.
+		g_FontMgr->ReleaseFonts();
+		CMenuBackgroundBitmap::ReleaseBackground();
 	}
 
 	static bool loadStuff = true;
@@ -921,15 +896,21 @@ void UI_SetActiveMenu( int fActive )
 		UI_CloseMenu();
 		uiStatic.nextFrameActive = false; // don't call main menu next frame
 
-		// X9-X follow-up: was meant to free the menu's font atlases and
-		// Steam/WON background tiles while a map is loaded (low-memory
-		// builds only - uiStatic.lowmemory is host_lowmemorymode, set by
-		// XASH_LOW_MEMORY on Xbox; !ClientInGame() excludes a pause/resume,
-		// where cls.state stays ca_active). Both release calls hang live in
-		// ref/nv2a's texture-free path (see s_bPendingLowMemRelease's own
-		// comment in UI_UpdateMenu) and neither runs any more; the flag is
-		// still set here, every map load, so a future ref/nv2a fix only
-		// needs to add the release calls back in UI_UpdateMenu.
+		// X9-X follow-up: free the menu's font atlases, font file and
+		// background while a map is loaded (low-memory builds only).
+		// uiStatic.lowmemory is host_lowmemorymode (set by XASH_LOW_MEMORY
+		// on Xbox), so PC builds are unchanged. !ClientInGame() excludes a
+		// pause/resume in game (cls.state stays ca_active there) - this
+		// branch is reached on every map load, through both
+		// CL_ParseServerData's UI_SetActiveMenu( cl.background ) before the
+		// world upload, and SCR_BeginLoadingPlaque leaving the menu for a
+		// map (engine/client/parse/cl_parse.c, engine/client/cl_scrn.c).
+		// The release itself runs on the next UI_UpdateMenu (see
+		// s_bPendingLowMemRelease). ClientInGame is the engine's CL_Active
+		// (engine/client/dll_int/cl_gameui.c:1217, cls.state == ca_active,
+		// cl_main.c:123), still ca_connected at cl_parse.c:928 - not
+		// CL_IsInGame, which the key destination set by UI_CloseMenu above
+		// would make true.
 		if( uiStatic.lowmemory && !EngFuncs::ClientInGame() )
 			s_bPendingLowMemRelease = true;
 	}
