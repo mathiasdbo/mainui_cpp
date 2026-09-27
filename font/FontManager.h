@@ -35,13 +35,6 @@ public:
 
 	void VidInit();
 
-	// X9-X follow-up: drop the atlases and the TTF while a map is loaded
-	// (low-memory builds only), rebuilt on demand the next time the menu
-	// draws. See UI_SetActiveMenu (BaseMenu.cpp) for the release call site
-	// and GetIFontFromHandle below for the on-demand restore.
-	void ReleaseFonts();
-	void RestoreFonts();
-
 	void DeleteAllFonts();
 	void DeleteFont( HFont hFont );
 
@@ -85,10 +78,6 @@ private:
 
 	void UploadTextureForFont(CBaseFont *font );
 
-	// the builder calls VidInit used to run inline; ReleaseFonts/RestoreFonts
-	// need to call the same sequence again, so it's factored out unchanged
-	void CreateFonts( float scale );
-
 	CUtlVector<CBaseFont*> m_Fonts;
 	struct font_file
 	{
@@ -96,9 +85,6 @@ private:
 		unsigned char *data;
 	};
 	CUtlHashMap<CUtlString, font_file> m_FontFiles;
-
-	bool  m_bReleased; // fonts and m_FontFiles were freed by ReleaseFonts()
-	float m_flReleasedScale; // uiStatic.scaleY at release time, for RestoreFonts()
 
 	friend class CFontBuilder;
 };
