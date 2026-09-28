@@ -654,7 +654,7 @@ void UI_UpdateMenu( float flTime )
 		// user configs" (the reason this whole block waits for the first
 		// UI_UpdateMenu instead of running in Init). That reason still
 		// holds - it's just CMenuBackgroundBitmap::Draw() that makes the
-		// first EnsureBackground() call now, on this same first draw, so
+		// first LoadBackground() call now, on this same first draw, so
 		// the load still happens no earlier than it used to.
 
 		// load localized strings
@@ -1297,7 +1297,7 @@ void UI_Init( void )
 	// XM item 0's "ui_xbox_menu_art" is deliberately NOT cached here into
 	// uiStatic the way lowmemory is: UI_Init runs before user configs are
 	// exec'd (this function's own reason LoadBackground is called from
-	// CMenuBackgroundBitmap::Draw()'s EnsureBackground(), on the menu's
+	// CMenuBackgroundBitmap::Draw(), on the menu's
 	// first draw, instead of from here - X9-X follow-up moved the call out
 	// of UI_UpdateMenu's own "can't do this in Init, since these are
 	// dependent on cvar values set from user configs" loadStuff block, but

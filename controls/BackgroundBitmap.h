@@ -98,7 +98,7 @@ private:
 
 	static bool s_bEnableLogoMovie, s_bGameHasSteamBackground, s_bGameHasWONBackground;
 
-	// has LoadBackground() ever run? (EnsureBackground() below only probes
+	// has LoadBackground() ever run? (Draw() only probes
 	// both profiles once; a reload after ReleaseBackground() just reloads
 	// whichever side s_state already names)
 	static bool s_bLoaded;
