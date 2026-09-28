@@ -43,6 +43,9 @@ CFontManager::CFontManager()
 #endif
 	m_Fonts.EnsureCapacity( 4 );
 	m_FontFiles.EnsureCapacity( 2 );
+
+	m_bReleased = false;
+	m_flReleasedScale = 0.0f;
 }
 
 CFontManager::~CFontManager()
@@ -68,42 +71,50 @@ void CFontManager::VidInit( void )
 
 	float scale = uiStatic.scaleY;
 
-	if( !prevScale
+	// X9-X follow-up: a released font set (map loaded, low-memory build)
+	// always needs rebuilding here, whatever the scale comparison below says
+	if( m_bReleased || !prevScale
 #ifndef SCALE_FONTS // complete disables font re-rendering
 	|| fabs( scale - prevScale ) > 0.1f
 #endif
 	)
 	{
-		DeleteAllFonts();
-		uiStatic.hDefaultFont = CFontBuilder( DEFAULT_MENUFONT, UI_MED_CHAR_HEIGHT * scale, DEFAULT_WEIGHT )
-			.SetHandleNum( QM_DEFAULTFONT )
-			.Create();
-		uiStatic.hSmallFont   = CFontBuilder( DEFAULT_MENUFONT, UI_SMALL_CHAR_HEIGHT * scale, DEFAULT_WEIGHT )
-			.SetHandleNum( QM_SMALLFONT )
-			.Create();
-		uiStatic.hBigFont     = CFontBuilder( DEFAULT_MENUFONT, UI_BIG_CHAR_HEIGHT * scale, DEFAULT_WEIGHT )
-			.SetHandleNum( QM_BIGFONT )
-			.Create();
-		uiStatic.hBoldFont = CFontBuilder( DEFAULT_MENUFONT, UI_MED_CHAR_HEIGHT * scale, 1000 )
-			.SetHandleNum( QM_BOLDFONT )
-			.Create();
-
-		if( !uiStatic.lowmemory )
-		{
-			uiStatic.hLightBlur = CFontBuilder( DEFAULT_MENUFONT, UI_MED_CHAR_HEIGHT * scale, DEFAULT_WEIGHT )
-				.SetBlurParams( 2 * scale, 1.25f )
-				.Create();
-
-			uiStatic.hHeavyBlur = CFontBuilder( DEFAULT_MENUFONT, UI_MED_CHAR_HEIGHT * scale, DEFAULT_WEIGHT )
-				.SetBlurParams( 8 * scale, 2.0f )
-				.Create();
-		}
-
-		uiStatic.hConsoleFont = CFontBuilder( DEFAULT_CONFONT, UI_CONSOLE_CHAR_HEIGHT * scale, 500 )
-			.SetOutlineSize()
-			.Create();
+		CreateFonts( scale );
+		m_bReleased = false;
 		prevScale = scale;
 	}
+}
+
+void CFontManager::CreateFonts( float scale )
+{
+	DeleteAllFonts();
+	uiStatic.hDefaultFont = CFontBuilder( DEFAULT_MENUFONT, UI_MED_CHAR_HEIGHT * scale, DEFAULT_WEIGHT )
+		.SetHandleNum( QM_DEFAULTFONT )
+		.Create();
+	uiStatic.hSmallFont   = CFontBuilder( DEFAULT_MENUFONT, UI_SMALL_CHAR_HEIGHT * scale, DEFAULT_WEIGHT )
+		.SetHandleNum( QM_SMALLFONT )
+		.Create();
+	uiStatic.hBigFont     = CFontBuilder( DEFAULT_MENUFONT, UI_BIG_CHAR_HEIGHT * scale, DEFAULT_WEIGHT )
+		.SetHandleNum( QM_BIGFONT )
+		.Create();
+	uiStatic.hBoldFont = CFontBuilder( DEFAULT_MENUFONT, UI_MED_CHAR_HEIGHT * scale, 1000 )
+		.SetHandleNum( QM_BOLDFONT )
+		.Create();
+
+	if( !uiStatic.lowmemory )
+	{
+		uiStatic.hLightBlur = CFontBuilder( DEFAULT_MENUFONT, UI_MED_CHAR_HEIGHT * scale, DEFAULT_WEIGHT )
+			.SetBlurParams( 2 * scale, 1.25f )
+			.Create();
+
+		uiStatic.hHeavyBlur = CFontBuilder( DEFAULT_MENUFONT, UI_MED_CHAR_HEIGHT * scale, DEFAULT_WEIGHT )
+			.SetBlurParams( 8 * scale, 2.0f )
+			.Create();
+	}
+
+	uiStatic.hConsoleFont = CFontBuilder( DEFAULT_CONFONT, UI_CONSOLE_CHAR_HEIGHT * scale, 500 )
+		.SetOutlineSize()
+		.Create();
 }
 
 void CFontManager::DeleteAllFonts()
@@ -128,16 +139,61 @@ void CFontManager::DeleteFont(HFont hFont)
 
 CBaseFont *CFontManager::GetIFontFromHandle(HFont font)
 {
+	// X9-X follow-up: the single on-demand restore point - covers drawing,
+	// text measurement, window layout, message boxes and final credits,
+	// everything that resolves a handle through here
+	if( m_bReleased )
+		RestoreFonts();
+
 	if( m_Fonts.IsValidIndex( font - 1 ) )
 		return m_Fonts[font-1];
 
 	return NULL;
 }
 
+void CFontManager::ReleaseFonts()
+{
+	if( m_bReleased )
+		return;
+
+	int numFonts = m_Fonts.Count();
+
+	DeleteAllFonts(); // each ~CBaseFont already PIC_Free()s its own atlas (BaseFontBackend.cpp:228-232)
+
+	// CStbFont keeps m_pFontData pointing straight into this data
+	// (StbFont.cpp:74-82), so the fonts have to go first
+	int bytesFreed = 0;
+	FOR_EACH_HASHMAP( m_FontFiles, i )
+	{
+		bytesFreed += m_FontFiles.Element( i ).length;
+		EngFuncs::COM_FreeFile( m_FontFiles.Element( i ).data );
+	}
+	m_FontFiles.Purge();
+
+	m_flReleasedScale = uiStatic.scaleY;
+	m_bReleased = true;
+
+	Con_Printf( "%s: released %i fonts, %i bytes of font data\n", __func__, numFonts, bytesFreed );
+}
+
+void CFontManager::RestoreFonts()
+{
+	if( !m_bReleased )
+		return;
+
+	m_bReleased = false; // clear first so this can't re-enter through CreateFonts
+
+	CreateFonts( m_flReleasedScale );
+
+	Con_Printf( "%s: restoring %i fonts\n", __func__, m_Fonts.Count() );
+}
+
 int CFontManager::GetEllipsisWide(HFont font)
 {
-	if( m_Fonts.IsValidIndex( font - 1 ) )
-		return m_Fonts[font-1]->GetEllipsisWide();
+	// Divergence #127: layout can be the first use after a map released fonts.
+	CBaseFont *pFont = GetIFontFromHandle( font );
+	if( pFont )
+		return pFont->GetEllipsisWide();
 	return 0;
 }
 

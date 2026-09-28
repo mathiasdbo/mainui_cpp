@@ -614,6 +614,19 @@ void UI_CloseMenu( void )
 // =====================================================================
 
 
+// X9-X follow-up: set by UI_SetActiveMenu below on a low-memory map load,
+// consumed at the top of the next UI_UpdateMenu. UI_SetActiveMenu(false)
+// runs from inside CL_ParseServerData (engine/client/parse/cl_parse.c:928),
+// halfway through parsing the server's packet; UI_UpdateMenu runs once per
+// drawn frame, the loading plaque's included (SCR_UpdateScreen ->
+// V_PostRender, engine/client/cl_scrn.c:686,704; cl_view.c:564), which is
+// where the menu already does its other texture work. A plain frame
+// boundary, not a workaround: the release is safe from either place (it
+// was once blamed for a crash in ref/nv2a's name lookup; that boot was
+// running out of memory on a stale disc - see docs/r3d/divergences.md
+// #127).
+static bool s_bPendingLowMemRelease = false;
+
 /*
 =================
 UI_UpdateMenu
@@ -624,14 +637,25 @@ void UI_UpdateMenu( float flTime )
 	if( !uiStatic.initialized )
 		return;
 
+	if( s_bPendingLowMemRelease )
+	{
+		s_bPendingLowMemRelease = false;
+		g_FontMgr->ReleaseFonts();
+		CMenuBackgroundBitmap::ReleaseBackground();
+	}
+
 	static bool loadStuff = true;
 
 	// can't do this in Init, since these are dependent on cvar values
 	// set from user configs
 	if( loadStuff )
 	{
-		// load background bitmaps
-		CMenuBackgroundBitmap::LoadBackground( );
+		// X9-X follow-up: the background bitmaps used to load here, "after
+		// user configs" (the reason this whole block waits for the first
+		// UI_UpdateMenu instead of running in Init). That reason still
+		// holds - it's just CMenuBackgroundBitmap::Draw() that makes the
+		// first LoadBackground() call now, on this same first draw, so
+		// the load still happens no earlier than it used to.
 
 		// load localized strings
 		UI_LoadCustomStrings();
@@ -871,6 +895,24 @@ void UI_SetActiveMenu( int fActive )
 	{
 		UI_CloseMenu();
 		uiStatic.nextFrameActive = false; // don't call main menu next frame
+
+		// X9-X follow-up: free the menu's font atlases, font file and
+		// background while a map is loaded (low-memory builds only).
+		// uiStatic.lowmemory is host_lowmemorymode (set by XASH_LOW_MEMORY
+		// on Xbox), so PC builds are unchanged. !ClientInGame() excludes a
+		// pause/resume in game (cls.state stays ca_active there) - this
+		// branch is reached on every map load, through both
+		// CL_ParseServerData's UI_SetActiveMenu( cl.background ) before the
+		// world upload, and SCR_BeginLoadingPlaque leaving the menu for a
+		// map (engine/client/parse/cl_parse.c, engine/client/cl_scrn.c).
+		// The release itself runs on the next UI_UpdateMenu (see
+		// s_bPendingLowMemRelease). ClientInGame is the engine's CL_Active
+		// (engine/client/dll_int/cl_gameui.c:1217, cls.state == ca_active,
+		// cl_main.c:123), still ca_connected at cl_parse.c:928 - not
+		// CL_IsInGame, which the key destination set by UI_CloseMenu above
+		// would make true.
+		if( uiStatic.lowmemory && !EngFuncs::ClientInGame() )
+			s_bPendingLowMemRelease = true;
 	}
 }
 
@@ -1254,9 +1296,12 @@ void UI_Init( void )
 	uiStatic.lowmemory = (int)EngFuncs::GetCvarFloat( "host_lowmemorymode" );
 	// XM item 0's "ui_xbox_menu_art" is deliberately NOT cached here into
 	// uiStatic the way lowmemory is: UI_Init runs before user configs are
-	// exec'd (this function's own reason LoadBackground below is called
-	// from UI_UpdateMenu instead of here - "can't do this in Init, since
-	// these are dependent on cvar values set from user configs"), so a
+	// exec'd (this function's own reason LoadBackground is called from
+	// CMenuBackgroundBitmap::Draw(), on the menu's
+	// first draw, instead of from here - X9-X follow-up moved the call out
+	// of UI_UpdateMenu's own "can't do this in Init, since these are
+	// dependent on cvar values set from user configs" loadStuff block, but
+	// the first draw still comes after user configs the same way), so a
 	// value cached at this point could never see a config's override -
 	// measured live, 2026-09-16: a userconfig.d override still read as the
 	// stale pre-config default. host_lowmemorymode is read-only and never
