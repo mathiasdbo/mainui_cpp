@@ -56,7 +56,14 @@ public:
 
 	static void LoadBackground();
 	static bool ShouldDrawLogoMovie() { return s_bEnableLogoMovie; }
+
+	// X9-X follow-up: drop the Steam/WON tiles while a map is loaded
+	// (low-memory builds only); Draw() reloads on demand through
+	// EnsureBackground() below the next time the menu draws.
+	static void ReleaseBackground();
 private:
+	static bool EnsureBackground();
+
 	struct bimage_t
 	{
 		HIMAGE hImage;
@@ -90,6 +97,11 @@ private:
 	static void FreeSteamBackground();
 
 	static bool s_bEnableLogoMovie, s_bGameHasSteamBackground, s_bGameHasWONBackground;
+
+	// has LoadBackground() ever run? (Draw() only probes
+	// both profiles once; a reload after ReleaseBackground() just reloads
+	// whichever side s_state already names)
+	static bool s_bLoaded;
 
 	static bstate_e s_state;
 
