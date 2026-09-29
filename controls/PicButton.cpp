@@ -357,6 +357,27 @@ void CMenuPicButton::Draw( )
 
 		SetBits( textflags, (iFlags & QMF_DROPSHADOW) ? ETF_SHADOW : 0 );
 
+#if XASH_XBOX
+		// Resonance3D (docs/r3d/divergences.md #131): a soft glow behind
+		// the focused item, the full-memory path's own heavy-blur pass
+		// (QM_HIGHLIGHTIFFOCUS above: hHeavyBlur in colorBase, no additive)
+		// and its decay after focus leaves (the "a > 0" draw above), under
+		// the plain text this path already draws. Drawn at the text's own
+		// position: blur fonts keep the plain font's advance
+		// (CBaseFont::GetCharABCWidths moves a left by the blur and widens
+		// b by it), so the glow lines up glyph for glyph. hHeavyBlur is
+		// built for low memory only on Xbox (CFontManager::CreateFonts).
+		if( uiStatic.hHeavyBlur && !( iFlags & QMF_GRAYED ))
+		{
+			const uint glow_flags = ETF_NOSIZELIMIT | ETF_FORCECOL;
+
+			if( this == m_pParent->ItemAtCursor() )
+				UI_DrawString( uiStatic.hHeavyBlur, m_scPos, m_scSize, szName, colorBase, m_scChSize, eTextAlignment, glow_flags );
+			else if( a > 0 )
+				UI_DrawString( uiStatic.hHeavyBlur, m_scPos, m_scSize, szName, PackAlpha( colorBase, a ), m_scChSize, eTextAlignment, glow_flags );
+		}
+#endif
+
 		if( iFlags & QMF_GRAYED )
 		{
 			UI_DrawString( font, m_scPos, m_scSize, szName, uiColorDkGrey, m_scChSize, eTextAlignment, textflags );
