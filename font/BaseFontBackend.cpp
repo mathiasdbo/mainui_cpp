@@ -206,6 +206,8 @@ void CBaseFont::UploadGlyphsForRanges(charRange_t *range, int rangeSize)
 		}
 	}
 
+	WhitenTransparentTexels( rgbdata, hdr->width * hdr->height );
+
 	SaveToCache( m_szTextureName, range, rangeSize, &bmp );
 
 	HIMAGE hImage = bmp.Upload( m_szTextureName );
@@ -552,11 +554,48 @@ int CBaseFont::DrawCharacter(int ch, Point pt, int charH, const unsigned int col
 	return width;
 }
 
+/*
+Resonance3D (docs/r3d/divergences.md #131): a glyph atlas whose visible
+texels are all pure white (GetCharRGBA paints "white and alpha", the blur
+pass keeps RGB at 255) carries its whole picture in alpha - but the
+texels outside every glyph are written as 0,0,0,0, so the atlas is not
+white everywhere. Painting those fully transparent texels white makes the
+atlas exactly white-plus-alpha, which ref/nv2a stores at 8 bits per texel
+(LU_IMAGE_A8) instead of 32 without changing anything it samples. Font
+glyphs are only ever drawn with alpha-weighted blending (PIC_DrawTrans,
+PIC_DrawAdditive - both scale the texel by its alpha), so an alpha-0
+texel's colour never reaches the screen, except where bilinear filtering
+blends it into a glyph's edge: there the edge now fades from white
+instead of from black, the way a GL premultiplied-alpha atlas would. An
+atlas with any non-white visible texel (an outlined or scanlined font) is
+left alone. Not guarded: the same image is uploaded on every platform,
+and no platform draws these texels unweighted.
+*/
+void CBaseFont::WhitenTransparentTexels( byte *rgba, int texelCount )
+{
+	for( int i = 0; i < texelCount; i++ )
+	{
+		const byte *t = &rgba[i * 4];
+		if( t[3] != 0 && ( t[0] != 255 || t[1] != 255 || t[2] != 255 ))
+			return; // a coloured or grey glyph texel: not a white-alpha atlas
+	}
+
+	for( int i = 0; i < texelCount; i++ )
+	{
+		byte *t = &rgba[i * 4];
+		if( t[3] == 0 )
+			t[0] = t[1] = t[2] = 255;
+	}
+}
+
 #define CACHED_FONT_IDENT \
 	(('T'<<24)+('F'<<16)+('I'<<8)+'U') // little-endian "UIFT"
 
 // Version 3. WinAPI font rendering behavior changed, force font regeneration
-#define CACHED_FONT_VERSION 3
+// Version 4 (Resonance3D, divergences.md #131): transparent texels of a
+// white-alpha atlas are white (WhitenTransparentTexels) - an older cache
+// would upload the unwhitened atlas at 32 bpp.
+#define CACHED_FONT_VERSION 4
 
 struct char_data_t
 {
