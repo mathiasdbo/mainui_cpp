@@ -111,6 +111,23 @@ void CFontManager::CreateFonts( float scale )
 			.SetBlurParams( 8 * scale, 2.0f )
 			.Create();
 	}
+#if XASH_XBOX
+	else
+	{
+		// Resonance3D (docs/r3d/divergences.md #131): the low-memory text
+		// buttons marked focus only by a slightly lighter orange, which is
+		// hard to see on a TV. Build the same heavy-blur glow font the
+		// full-memory path uses (identical parameters, above) so
+		// CMenuPicButton::Draw can put it behind the focused item. The
+		// light-blur font stays unbuilt: the text itself keeps the plain,
+		// sharp font. White glyphs plus alpha, so ref/nv2a stores the atlas
+		// at 8 bits per texel (WhitenTransparentTexels).
+		uiStatic.hLightBlur = 0;
+		uiStatic.hHeavyBlur = CFontBuilder( DEFAULT_MENUFONT, UI_MED_CHAR_HEIGHT * scale, DEFAULT_WEIGHT )
+			.SetBlurParams( 8 * scale, 2.0f )
+			.Create();
+	}
+#endif
 
 	uiStatic.hConsoleFont = CFontBuilder( DEFAULT_CONFONT, UI_CONSOLE_CHAR_HEIGHT * scale, 500 )
 		.SetOutlineSize()
