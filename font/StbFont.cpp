@@ -170,7 +170,14 @@ void CStbFont::GetCharABCWidthsNoCache(int ch, int &a, int &b, int &c)
 	int x0, x1;
 	int width, horiBearingX, horiAdvance;
 
-	stbtt_GetGlyphBox( &m_fontInfo, glyphId, &x0, NULL, &x1, NULL );
+	// A glyph with no outline (the space: its two loca entries are equal)
+	// makes stbtt_GetGlyphBox return 0 WITHOUT writing x0/x1
+	// (stb_truetype.h, stbtt_GetGlyphBox), so width below was computed from
+	// uninitialised locals and the space's advance - a, b and c are rounded
+	// separately - came out differently per build: one pixel apart between
+	// an -O0 and an -O2 build of the same code. An empty glyph has no ink.
+	if( !stbtt_GetGlyphBox( &m_fontInfo, glyphId, &x0, NULL, &x1, NULL ))
+		x0 = x1 = 0;
 	stbtt_GetCodepointHMetrics( &m_fontInfo, ch, &horiAdvance, &horiBearingX );
 	width = x1 - x0;
 
