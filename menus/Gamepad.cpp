@@ -51,8 +51,8 @@ static const char *axisNames[7] =
 {
 	"Side",
 	"Forward",
-	"Yaw",
 	"Pitch",
+	"Yaw",
 	"Right Trigger",
 	"Left Trigger",
 	"NOT BOUND"
@@ -233,8 +233,8 @@ private:
 	// own gamma test image already proves for a static diagram picture.
 	CMenuBitmap diagram;
 
-	CMenuAction mapLabels[8];
-	char mapLabelText[8][64];
+	CMenuAction mapLabels[18];
+	char mapLabelText[18][64];
 
 	// XM.1's own "do not use AddButton(EDefaultBtns)" call
 	// (Configuration.cpp:96-135's own precedent, this ledger's own
@@ -361,43 +361,39 @@ void CMenuGamePad::UpdateSchemeDisplay( void )
 	// prefix (and the Look/Move/Mixed role words below) now goes through
 	// L() too, matching the discipline every other new string in this
 	// item already follows.
-	snprintf( mapLabelText[0], sizeof( mapLabelText[0] ), "%s: %s", L( "Left trigger" ), FriendlyCommandName( EngFuncs::KEY_GetBinding( K_JOY1 )));
+	// Every physical button a scheme can bind, named as printed on the pad
+	// (UI_PadKeyName), with whatever action it is bound to right now. The
+	// triggers are read from their analog key; the digital twin always
+	// carries the same bind.
+	static const int padKeys[] =
+	{
+		K_JOY1, K_JOY2, K_A_BUTTON, K_B_BUTTON, K_X_BUTTON, K_Y_BUTTON,
+		K_L1_BUTTON, K_R1_BUTTON, K_LSTICK, K_RSTICK,
+		K_DPAD_UP, K_DPAD_RIGHT, K_DPAD_DOWN, K_DPAD_LEFT, K_BACK_BUTTON,
+		K_START_BUTTON
+	};
 
-	// joy_axis_binding's own left-stick pair is TWO characters (physical
-	// axes 0 and 1, in_joy.c:60-61) - reading only axis 0 reported "Look"
-	// or "Move" even for a mixed/malformed assignment (one axis moving,
-	// the other looking) that no scheme this fork ships ever produces,
-	// but a hand-edited config could. Both must agree before calling it
-	// either one (Codex review round 2, main-repo).
+	int row = 0;
+	for( size_t i = 0; i < V_ARRAYSIZE( padKeys ); i++, row++ )
+	{
+		snprintf( mapLabelText[row], sizeof( mapLabelText[row] ), "%s: %s",
+			UI_PadKeyName( padKeys[i] ), FriendlyCommandName( EngFuncs::KEY_GetBinding( padKeys[i] )));
+	}
+
+	// joy_axis_binding's stick pairs are TWO characters each (physical axes
+	// 0/1 = left stick, 2/3 = right stick, in_joy.c:60-61). Both axes of a
+	// stick must agree before calling it Move or Look, otherwise Mixed.
 	const char *axisBinding = EngFuncs::GetCvarString( "joy_axis_binding" );
-	bool axis0Looks = axisBinding[0] == 'y' || axisBinding[0] == 'p';
-	bool axis1Looks = axisBinding[1] == 'y' || axisBinding[1] == 'p';
-	bool axis0Moves = axisBinding[0] == 's' || axisBinding[0] == 'f';
-	bool axis1Moves = axisBinding[1] == 's' || axisBinding[1] == 'f';
-	const char *leftStickRole;
-	if( axis0Looks && axis1Looks )
-		leftStickRole = L( "Look" );
-	else if( axis0Moves && axis1Moves )
-		leftStickRole = L( "Move" );
-	else
-		leftStickRole = L( "Mixed" );
-	snprintf( mapLabelText[1], sizeof( mapLabelText[1] ), "%s: %s", L( "Left stick" ), leftStickRole );
+	for( int stick = 0; stick < 2; stick++ )
+	{
+		char a0 = axisBinding[stick * 2], a1 = axisBinding[stick * 2 + 1];
+		bool looks = ( a0 == 'y' || a0 == 'p' ) && ( a1 == 'y' || a1 == 'p' );
+		bool moves = ( a0 == 's' || a0 == 'f' ) && ( a1 == 's' || a1 == 'f' );
 
-	snprintf( mapLabelText[2], sizeof( mapLabelText[2] ), "%s: %s", L( "Stick click" ), FriendlyCommandName( EngFuncs::KEY_GetBinding( K_LSTICK )));
-
-	// A single "D-pad: %s" line read only K_DPAD_UP, but every scheme
-	// table (ControllerSchemes.cpp) binds all four directions
-	// independently and differently - Standard showed only "Weapon
-	// Category 1", hiding categories 2-4 entirely; Legacy showed only
-	// "Spray Logo", hiding its three weapon-navigation binds. Each
-	// direction gets its own row instead of one falsely-summarized line
-	// (Codex review round 2, main-repo).
-	snprintf( mapLabelText[3], sizeof( mapLabelText[3] ), "%s: %s", L( "D-pad up" ), FriendlyCommandName( EngFuncs::KEY_GetBinding( K_DPAD_UP )));
-	snprintf( mapLabelText[4], sizeof( mapLabelText[4] ), "%s: %s", L( "D-pad right" ), FriendlyCommandName( EngFuncs::KEY_GetBinding( K_DPAD_RIGHT )));
-	snprintf( mapLabelText[5], sizeof( mapLabelText[5] ), "%s: %s", L( "D-pad down" ), FriendlyCommandName( EngFuncs::KEY_GetBinding( K_DPAD_DOWN )));
-	snprintf( mapLabelText[6], sizeof( mapLabelText[6] ), "%s: %s", L( "D-pad left" ), FriendlyCommandName( EngFuncs::KEY_GetBinding( K_DPAD_LEFT )));
-
-	snprintf( mapLabelText[7], sizeof( mapLabelText[7] ), "%s: %s", L( "Back" ), FriendlyCommandName( EngFuncs::KEY_GetBinding( K_BACK_BUTTON )));
+		snprintf( mapLabelText[row++], sizeof( mapLabelText[0] ), "%s: %s",
+			L( stick ? "Right stick" : "Left stick" ),
+			looks ? L( "Look" ) : moves ? L( "Move" ) : L( "Mixed" ));
+	}
 
 	for( int i = 0; i < V_ARRAYSIZE( mapLabelText ); i++ )
 		mapLabels[i].szName = mapLabelText[i];
@@ -590,7 +586,7 @@ void CMenuGamePad::_Init( void )
 		mapLabels[i].iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
 		mapLabels[i].colorBase = uiColorHelp;
 		mapLabels[i].SetCharSize( QM_SMALLFONT );
-		mapLabels[i].SetRect( 560, 480 + i * 24, 400, 22 );
+		mapLabels[i].SetRect( 560 + ( i / 9 ) * 210, 480 + ( i % 9 ) * 22, 210, 20 );
 	}
 
 	// Heap-allocated and tracked in m_apBtns here (ownership/shutdown

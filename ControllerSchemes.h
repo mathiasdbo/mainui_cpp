@@ -67,5 +67,17 @@ EControllerScheme UI_DetectControllerScheme( void );
 // mistake of guessing at an unverified key).
 extern const char *g_pszControllerSchemeNames[CONTROLLER_SCHEME_COUNT];
 
+// Name of a gamepad key as printed on the Duke/Controller S (A, B, X, Y,
+// White, Black, Left Trigger, D-Pad Up...). The engine's own key names
+// (JOY1, L1_BUTTON, STICK1...) are SDL-gamepad terms that mean nothing
+// on an Xbox pad. Falls back to the engine name for any other key.
+const char *UI_PadKeyName( int key );
+
+// The analog trigger and its digital-threshold twin are the SAME physical
+// button (K_JOY1/K_L2_BUTTON = left, K_JOY2/K_R2_BUTTON = right) - schemes
+// bind both so either path fires. Returns the other half of the pair, or
+// -1 if the key has no twin.
+int UI_PadKeyTwin( int key );
+
 #endif // XASH_XBOX
 #endif // CONTROLLERSCHEMES_H
