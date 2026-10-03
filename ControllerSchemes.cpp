@@ -199,4 +199,44 @@ EControllerScheme UI_DetectControllerScheme( void )
 	return SCHEME_CUSTOM;
 }
 
+int UI_PadKeyTwin( int key )
+{
+	switch( key )
+	{
+	case K_JOY1:      return K_L2_BUTTON;
+	case K_L2_BUTTON: return K_JOY1;
+	case K_JOY2:      return K_R2_BUTTON;
+	case K_R2_BUTTON: return K_JOY2;
+	}
+	return -1;
+}
+
+const char *UI_PadKeyName( int key )
+{
+	// Black is R1_BUTTON and White is L1_BUTTON - see the s_standardBinds
+	// comment above (confirmed against nxdk's own SDL Xbox joystick driver).
+	switch( key )
+	{
+	case K_A_BUTTON:     return L( "A" );
+	case K_B_BUTTON:     return L( "B" );
+	case K_X_BUTTON:     return L( "X" );
+	case K_Y_BUTTON:     return L( "Y" );
+	case K_L1_BUTTON:    return L( "White" );
+	case K_R1_BUTTON:    return L( "Black" );
+	case K_JOY1:
+	case K_L2_BUTTON:    return L( "Left Trigger" );
+	case K_JOY2:
+	case K_R2_BUTTON:    return L( "Right Trigger" );
+	case K_LSTICK:       return L( "Left Stick Click" );
+	case K_RSTICK:       return L( "Right Stick Click" );
+	case K_DPAD_UP:      return L( "D-Pad Up" );
+	case K_DPAD_DOWN:    return L( "D-Pad Down" );
+	case K_DPAD_LEFT:    return L( "D-Pad Left" );
+	case K_DPAD_RIGHT:   return L( "D-Pad Right" );
+	case K_BACK_BUTTON:  return L( "Back" );
+	case K_START_BUTTON: return L( "Start" );
+	}
+	return EngFuncs::KeynumToString( key );
+}
+
 #endif // XASH_XBOX

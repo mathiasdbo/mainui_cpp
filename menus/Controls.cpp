@@ -89,6 +89,10 @@ private:
 	public:
 		bool KeyUp( int key ) override;
 		bool KeyDown( int key ) override;
+#if XASH_XBOX
+		// the gamepad key pressed since this dialog opened; -1 until then
+		int armedKey = -1;
+#endif // XASH_XBOX
 	} msgBox1; // small msgbox
 
 #if !XASH_XBOX
@@ -151,7 +155,9 @@ static void FormatBoundKeyForRow( int key, char *out, size_t size )
 	if( key == -1 )
 		return;
 
-	const char *s = EngFuncs::KeynumToString( key );
+	// Duke/Controller S names (A, White, Left Trigger...), not the
+	// engine's SDL-style JOY1/L1_BUTTON/STICK1.
+	const char *s = UI_PadKeyName( key );
 	if( s )
 		snprintf( out, size, "^3%s^7", s );
 }
@@ -194,6 +200,16 @@ static void LookupBoundGamepadKeys( const char *command, int twoKeys[2] )
 
 		if( !stricmp( command, b ))
 		{
+			// the analog trigger and its digital twin are one physical
+			// button - list it once, not as two "alternate" bindings
+			int twin = UI_PadKeyTwin( i );
+			if( twin != -1 && twin < i )
+			{
+				const char *tb = EngFuncs::KEY_GetBinding( twin );
+				if( tb && !stricmp( command, tb ))
+					continue;
+			}
+
 			twoKeys[count++] = i;
 			if( count == 2 )
 				break;
@@ -340,6 +356,17 @@ bool CMenuControls::CGrabKeyMessageBox::KeyUp( int key )
 	CMenuControls *parent = ((CMenuControls*)m_pParent);
 
 #if XASH_XBOX
+	// Only accept the release of a key that was pressed while this
+	// dialog was open. Without this, the release of the button that
+	// opened the dialog, or an analog trigger crossing its threshold on
+	// its own (the left trigger came up every time), was captured as the
+	// new binding before the player pressed anything.
+	if( key != armedKey )
+		return true;
+	armedKey = -1;
+#endif // XASH_XBOX
+
+#if XASH_XBOX
 	// XM.1 item 5: Start must stay cancelselect forever, even if some
 	// OTHER row's grab dialog tries to capture it - a real way the lock
 	// in EnterGrabMode()/UnbindEntry() below could otherwise be bypassed,
@@ -387,11 +414,14 @@ bool CMenuControls::CGrabKeyMessageBox::KeyUp( int key )
 		// (ControllerSchemes.cpp), so this was routinely reachable, not
 		// an edge case. Now the clear only happens atomically with an
 		// actually-accepted replacement.
-		int existingKeys[2];
+		// Reassign MOVES the action: its old gamepad button(s) are
+		// cleared, so one action never ends up on several buttons.
+		UnbindGamepadCommand( bindName );
 
-		LookupBoundGamepadKeys( bindName, existingKeys );
-		if( existingKeys[1] != -1 )
-			UnbindGamepadCommand( bindName );
+		// a trigger is bound through both its analog and digital key
+		int twin = UI_PadKeyTwin( key );
+		if( twin != -1 )
+			EngFuncs::ClientCmdF( true, "bind \"%s\" \"%s\"\n", EngFuncs::KeynumToString( twin ), bindName );
 #endif // XASH_XBOX
 
 		EngFuncs::ClientCmdF( true, "bind \"%s\" \"%s\"\n", EngFuncs::KeynumToString( key ), bindName );
@@ -408,6 +438,10 @@ bool CMenuControls::CGrabKeyMessageBox::KeyUp( int key )
 
 bool CMenuControls::CGrabKeyMessageBox::KeyDown( int key )
 {
+#if XASH_XBOX
+	if( IsGamepadKey( key ))
+		armedKey = key;
+#endif // XASH_XBOX
 	return true;
 }
 
@@ -471,6 +505,9 @@ void CMenuControls::EnterGrabMode()
 		UnbindCommand( bindName );
 #endif // !XASH_XBOX
 
+#if XASH_XBOX
+	msgBox1.armedKey = -1;
+#endif // XASH_XBOX
 	msgBox1.Show();
 
 	PlayLocalSound( uiStatic.sounds[SND_KEY] );
