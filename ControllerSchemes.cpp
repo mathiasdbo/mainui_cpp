@@ -199,6 +199,27 @@ EControllerScheme UI_DetectControllerScheme( void )
 	return SCHEME_CUSTOM;
 }
 
+// controller_scheme <standard|southpaw|legacy>
+// Console entry point to UI_ApplyControllerScheme(). The engine runs
+// "controller_scheme standard" on a fresh or reset config
+// (Key_SeedGamepadDefaults, in_keys.c), so the scheme table stays here.
+static void UI_ControllerSchemeCmd( void )
+{
+	const char *arg = EngFuncs::CmdArgv( 1 );
+
+	for( int i = 0; i < CONTROLLER_SCHEME_COUNT; i++ )
+	{
+		if( !stricmp( arg, g_pszControllerSchemeNames[i] ))
+		{
+			UI_ApplyControllerScheme( (EControllerScheme)i );
+			return;
+		}
+	}
+
+	Con_Printf( "usage: controller_scheme <standard|southpaw|legacy>\n" );
+}
+ADD_COMMAND( controller_scheme, UI_ControllerSchemeCmd );
+
 int UI_PadKeyTwin( int key )
 {
 	switch( key )
