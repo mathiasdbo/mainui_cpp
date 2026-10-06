@@ -114,7 +114,13 @@ protected:
 
 private:
 	bool ReadFromCache( const char *filename, charRange_t *range, size_t rangeSize );
-	void SaveToCache( const char *filename, charRange_t *range, size_t rangeSize, CBMP *bmp );
+	// Resonance3D (docs/r3d/divergences.md #152): upstream's
+	// SaveToCache( ..., CBMP *bmp ), which stored the atlas as a 32-bit
+	// BMP and left the upload to the caller. This one encodes the atlas
+	// once, as an 8-, 16- or 32-bit TGA, writes the cache file and uploads
+	// the image from the same bytes, so a fresh render and a cache hit
+	// hand the engine identical data.
+	HIMAGE UploadAndSaveToCache( const char *filename, charRange_t *range, size_t rangeSize, CBMP *bmp );
 
 	static void WhitenTransparentTexels( byte *rgba, int texelCount );
 	void GetBlurValueForPixel( double *distribution, const byte *src, Point srcPt, Size srcSz, byte *dest );

@@ -17,6 +17,7 @@ GNU General Public License for more details.
 #include <math.h>
 #include "Utils.h"
 #include "miniutl/utlbuffer.h"
+#include "AtlasTGA.h" // Resonance3D, divergences.md #152
 
 CBaseFont::CBaseFont()
 	: m_iTall(), m_iWeight(), m_iFlags(),
@@ -62,15 +63,20 @@ void CBaseFont::GetTextureName( char *dst, size_t len ) const
 	attribs[i] = 0;
 
 	// faster loading: don't query filesystem, tell engine to skip everything and load only from buffer
+	// Resonance3D (docs/r3d/divergences.md #152): ".tga", not upstream's
+	// ".bmp" - the atlas is handed to the engine as a TGA now (see
+	// UploadAndSaveToCache), and the engine picks its image loader by this
+	// extension. It also names the cache file, so a cache written by an
+	// older build (".bmp") is never read as the new format.
 	if( i == 0 )
 	{
-		snprintf( dst, len - 1, "#%s_%i_%i_%s_font.bmp", GetName(), GetTall(), GetWeight(), GetBackendName( ));
+		snprintf( dst, len - 1, "#%s_%i_%i_%s_font.tga", GetName(), GetTall(), GetWeight(), GetBackendName( ));
 		dst[len - 1] = 0;
 	}
 	else
 	{
 		attribs[i] = 0;
-		snprintf( dst, len - 1, "#%s_%i_%i_%s_%s_font.bmp", GetName(), GetTall(), GetWeight(), attribs, GetBackendName( ));
+		snprintf( dst, len - 1, "#%s_%i_%i_%s_%s_font.tga", GetName(), GetTall(), GetWeight(), attribs, GetBackendName( ));
 		dst[len - 1] = 0;
 	}
 }
@@ -208,9 +214,7 @@ void CBaseFont::UploadGlyphsForRanges(charRange_t *range, int rangeSize)
 
 	WhitenTransparentTexels( rgbdata, hdr->width * hdr->height );
 
-	SaveToCache( m_szTextureName, range, rangeSize, &bmp );
-
-	HIMAGE hImage = bmp.Upload( m_szTextureName );
+	HIMAGE hImage = UploadAndSaveToCache( m_szTextureName, range, rangeSize, &bmp );
 
 	delete[] temp;
 
@@ -595,7 +599,11 @@ void CBaseFont::WhitenTransparentTexels( byte *rgba, int texelCount )
 // Version 4 (Resonance3D, divergences.md #131): transparent texels of a
 // white-alpha atlas are white (WhitenTransparentTexels) - an older cache
 // would upload the unwhitened atlas at 32 bpp.
-#define CACHED_FONT_VERSION 4
+// Version 5 (Resonance3D, divergences.md #152): the atlas is stored as an
+// 8-, 16- or 32-bit TGA (AtlasTGA_* below) instead of a 32-bit BMP. Its
+// file name ends in ".tga" (GetTextureName), so a version 4 file is never
+// opened; the version still says what the payload is.
+#define CACHED_FONT_VERSION 5
 
 struct char_data_t
 {
@@ -618,7 +626,6 @@ bool CBaseFont::ReadFromCache( const char *filename, charRange_t *range, size_t 
 	byte *data;
 	cached_font_t *hdr;
 	char_data_t *ch;
-	bmp_t *bmp;
 
 	// skip special symbol used for engine
 	V_snprintf( path, sizeof( path ), ".fontcache/%s", filename[0] == '#' ? filename + 1 : filename );
@@ -639,6 +646,9 @@ bool CBaseFont::ReadFromCache( const char *filename, charRange_t *range, size_t 
 
 	hdr = reinterpret_cast<cached_font_t *>( data );
 
+	// NOTE: the EngFuncs::DeleteFile( filename ) calls below are upstream's.
+	// They pass the texture name, not the cache path, so they remove
+	// nothing; a rejected cache file is rewritten by UploadAndSaveToCache.
 	if( size < sizeof( cached_font_t ) )
 	{
 		Con_Printf( "Font cache file is too short\n" );
@@ -679,17 +689,20 @@ bool CBaseFont::ReadFromCache( const char *filename, charRange_t *range, size_t 
 		return false;
 	}
 
-	bmp = reinterpret_cast<bmp_t *>(data + sizeof( cached_font_t ) + hdr->charsCount * sizeof( char_data_t ));
+	// Resonance3D (#152): upstream's BMP id and size checks, for the TGA.
+	const size_t tgaOffset = sizeof( cached_font_t ) + hdr->charsCount * sizeof( char_data_t );
+	const byte *tga = data + tgaOffset;
+	const size_t tgaSize = AtlasTGA_CheckedSize( tga, size - tgaOffset );
 
-	if( bmp->id[0] != 'B' && bmp->id[1] != 'M' )
+	if( !tgaSize )
 	{
-		Con_Printf( "Font cache BMP file id check failed\n" );
+		Con_Printf( "Font cache TGA header check failed\n" );
 		EngFuncs::COM_FreeFile( data );
 		EngFuncs::DeleteFile( filename );
 		return false;
 	}
 
-	if( size != sizeof( cached_font_t ) + hdr->charsCount * sizeof( char_data_t ) + bmp->fileSize )
+	if( size != tgaOffset + tgaSize )
 	{
 		Con_Printf( "Font cache file is too short or too long (3rd check)\n" );
 		EngFuncs::COM_FreeFile( data );
@@ -697,13 +710,11 @@ bool CBaseFont::ReadFromCache( const char *filename, charRange_t *range, size_t 
 		return false;
 	}
 
-	uint bmpFileSize = bmp->fileSize;
-	CBMP::SwapBmpHdrToLE( bmp );
-	HIMAGE hImage = EngFuncs::PIC_Load( filename, (const byte*)bmp, bmpFileSize, 0 );
+	HIMAGE hImage = EngFuncs::PIC_Load( filename, tga, tgaSize, 0 );
 
 	if( !hImage )
 	{
-		Con_Printf( "Failed to load font cache BMP\n" );
+		Con_Printf( "Failed to load font cache TGA\n" );
 		EngFuncs::COM_FreeFile( data );
 		EngFuncs::DeleteFile( filename );
 		return false;
@@ -752,24 +763,24 @@ bool CBaseFont::ReadFromCache( const char *filename, charRange_t *range, size_t 
 	return true;
 }
 
-void CBaseFont::SaveToCache( const char *filename, charRange_t *range, size_t rangeSize, CBMP *bmp )
+HIMAGE CBaseFont::UploadAndSaveToCache( const char *filename, charRange_t *range, size_t rangeSize, CBMP *bmp )
 {
 	char path[512];
 	int i, j;
 	uint32_t charsCount = 0;
 	byte *data, *buf_p;
-	size_t size = 0, bmpSize = bmp->GetBitmapHdr()->fileSize;
-
-	// skip special symbol used for engine
-	if( filename[0] == '#' )
-		filename++;
+	const bmp_t *bhdr = bmp->GetBitmapHdr();
+	const uint width = bhdr->width, height = (uint)bhdr->height;
+	const byte *rgba = bmp->GetTextureData();
+	const char *cacheName = filename[0] == '#' ? filename + 1 : filename; // skip special symbol used for engine
 
 	for( i = 0; i < rangeSize; i++ )
 		charsCount += range[i].Length();
 
-	size = sizeof( cached_font_t ) +
-			charsCount * sizeof( char_data_t ) +
-			bmpSize;
+	const atlasTgaForm_e form = AtlasTGA_Classify( rgba, (size_t)width * height );
+	const size_t tgaSize = AtlasTGA_Size( form, width, height );
+	const size_t tgaOffset = sizeof( cached_font_t ) + charsCount * sizeof( char_data_t );
+	const size_t size = tgaOffset + tgaSize;
 
 	buf_p = data = new byte[size];
 
@@ -806,13 +817,28 @@ void CBaseFont::SaveToCache( const char *filename, charRange_t *range, size_t ra
 		}
 	}
 
-	memcpy( buf_p, bmp->GetBitmapHdr(), bmpSize );
+	if( buf_p - data != tgaOffset )
+		Host_Error( "%s: %i: buf_p - data != tgaOffset", __FILE__, __LINE__ );
 
-	if( buf_p + bmpSize - data != size )
-		Host_Error( "%s: %i: buf_p + bmpSize - data != size", __FILE__, __LINE__ );
+	AtlasTGA_Write( buf_p, form, rgba, width, height );
 
-	V_snprintf( path, sizeof( path ), ".fontcache/%s", filename );
+	V_snprintf( path, sizeof( path ), ".fontcache/%s", cacheName );
 	EngFuncs::COM_SaveFile( path, data, size );
 
+	// A cache an older build wrote for this font (upstream's ".bmp" name,
+	// a version 4 file) is never read again: remove it rather than leave
+	// it on the drive.
+	char legacyPath[512];
+	const size_t len = strlen( path );
+	if( len > 4 && !strcmp( path + len - 4, ".tga" ))
+	{
+		V_snprintf( legacyPath, sizeof( legacyPath ), "%.*s.bmp", (int)( len - 4 ), path );
+		if( EngFuncs::FileExists( legacyPath, true ))
+			EngFuncs::DeleteFile( legacyPath );
+	}
+
+	HIMAGE hImage = EngFuncs::PIC_Load( filename, buf_p, tgaSize, 0 );
+
 	delete[] data;
+	return hImage;
 }

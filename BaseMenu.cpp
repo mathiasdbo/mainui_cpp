@@ -625,7 +625,70 @@ void UI_CloseMenu( void )
 // was once blamed for a crash in ref/nv2a's name lookup; that boot was
 // running out of memory on a stale disc - see docs/r3d/divergences.md
 // #127).
+//
+// It does not cover every load on its own: during a changelevel or a load
+// started in game the loading plaque disables the screen
+// (cls.disable_screen, V_PreRender, engine/client/cl_view.c), so no
+// UI_UpdateMenu runs until the map is loaded. On the Xbox the engine
+// therefore also runs "menu_releasefonts" as each load begins
+// (UI_ReleaseFonts_f below).
 static bool s_bPendingLowMemRelease = false;
+
+#if XASH_XBOX
+/*
+=================
+UI_ReleaseFonts_f
+
+Resonance3D (docs/r3d/divergences.md #127): "menu_releasefonts" frees the
+font atlases, font files and background right away. The engine runs it in
+SCR_BeginLoadingPlaque (engine/client/cl_scrn.c, via
+engine/platform/xbox/xbox_menu_fonts.c), from the host frame, as a new
+game, saved game or changelevel starts - before the server loads the map,
+so the fonts are never resident through a load's peak, whether or not the
+previous map restored them. No ClientInGame() test: a changelevel starts
+in game. Low-memory builds only, like the deferred release above.
+=================
+*/
+static void UI_ReleaseFonts_f( void )
+{
+	if( !uiStatic.lowmemory || !g_FontMgr )
+		return;
+
+	s_bPendingLowMemRelease = false;
+	g_FontMgr->ReleaseFonts();
+	CMenuBackgroundBitmap::ReleaseBackground();
+}
+
+/*
+=================
+UI_RestoreFonts_f
+
+Resonance3D (docs/r3d/divergences.md #127): "menu_restorefonts" rebuilds
+the font set a map load released right away, instead of on the first use
+that resolves a font handle (CFontManager::GetIFontFromHandle) - in
+practice the first pause-menu open, which then cost a frame of 300 ms or
+more on the console. The engine runs it once the client has loaded a map,
+behind the loading plaque, and only when enough memory is free
+(engine/platform/xbox/xbox_menu_fonts.c); otherwise the fonts stay
+released and the lazy path restores them as before. It also drops a
+release still pending from this load (CL_ParseServerData's
+UI_SetActiveMenu, which no UI_UpdateMenu has consumed while the plaque
+disabled the screen): the fonts were released when the load began, and
+consuming it on the first frame in play would undo this restore. A no-op
+while the fonts are resident. The background is not restored: the pause
+menu does not draw it in game (CMenuBackgroundBitmap::Draw), and the main
+menu restores it on its first draw.
+=================
+*/
+static void UI_RestoreFonts_f( void )
+{
+	if( !g_FontMgr )
+		return;
+
+	s_bPendingLowMemRelease = false;
+	g_FontMgr->RestoreFonts();
+}
+#endif // XASH_XBOX
 
 /*
 =================
@@ -1292,6 +1355,11 @@ void UI_Init( void )
 
 	g_FontMgr = new CFontManager();
 
+#if XASH_XBOX
+	EngFuncs::Cmd_AddCommand( "menu_releasefonts", UI_ReleaseFonts_f );
+	EngFuncs::Cmd_AddCommand( "menu_restorefonts", UI_RestoreFonts_f );
+#endif
+
 	uiStatic.initialized = true;
 	uiStatic.lowmemory = (int)EngFuncs::GetCvarFloat( "host_lowmemorymode" );
 	// XM item 0's "ui_xbox_menu_art" is deliberately NOT cached here into
@@ -1368,6 +1436,11 @@ void UI_Shutdown( void )
 	}
 
 	UI_FreeCustomStrings();
+
+#if XASH_XBOX
+	EngFuncs::Cmd_RemoveCommand( "menu_releasefonts" );
+	EngFuncs::Cmd_RemoveCommand( "menu_restorefonts" );
+#endif
 
 	delete uiStatic.background;
 	delete g_FontMgr;
