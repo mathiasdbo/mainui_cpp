@@ -190,7 +190,9 @@ void CFontManager::ReleaseFonts()
 	m_flReleasedScale = uiStatic.scaleY;
 	m_bReleased = true;
 
-	Con_Printf( "%s: released %i fonts, %i bytes of font data\n", __func__, numFonts, bytesFreed );
+	// Con_DPrintf: since #127's restore at every map load (2026-10-06)
+	// these two lines would otherwise print on every load
+	Con_DPrintf( "%s: released %i fonts, %i bytes of font data\n", __func__, numFonts, bytesFreed );
 }
 
 void CFontManager::RestoreFonts()
@@ -202,7 +204,7 @@ void CFontManager::RestoreFonts()
 
 	CreateFonts( m_flReleasedScale );
 
-	Con_Printf( "%s: restoring %i fonts\n", __func__, m_Fonts.Count() );
+	Con_DPrintf( "%s: restoring %i fonts\n", __func__, m_Fonts.Count() );
 }
 
 int CFontManager::GetEllipsisWide(HFont font)

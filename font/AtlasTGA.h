@@ -48,6 +48,7 @@ the format defines them.
 */
 #define ATLAS_TGA_HEADER_BYTES   18
 #define ATLAS_TGA_COLORMAP_BYTES ( 256 * 4 )
+#define ATLAS_TGA_MAX_SIDE       8192
 
 enum atlasTgaForm_e
 {
@@ -171,7 +172,11 @@ static inline size_t AtlasTGA_CheckedSize( const uint8_t *p, size_t avail )
 	const unsigned int pixelSize      = p[16];
 	atlasTgaForm_e form;
 
-	if( p[0] != 0 || width == 0 || height == 0 || ( p[17] & 0x20 ))
+	// The cap keeps AtlasTGA_Size from wrapping a 32-bit size_t on a
+	// crafted header (65535 x 65535 x 4); the engine refuses anything
+	// past 8192 anyway (Image_ValidSize, img_utils.c), and an atlas never
+	// comes near it.
+	if( p[0] != 0 || width == 0 || height == 0 || width > ATLAS_TGA_MAX_SIDE || height > ATLAS_TGA_MAX_SIDE || ( p[17] & 0x20 ))
 		return 0;
 
 	if( imageType == ATLAS_TGA_WHITE_ALPHA && colormapType == 1 && colormapIndex == 0
