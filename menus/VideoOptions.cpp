@@ -76,6 +76,9 @@ public:
 	// Resonance3D: r3d_vid_aspect - as the Dashboard is set, 4:3, or
 	// anamorphic 16:9 (vid_common.c's VID_XboxRenderWidth), live
 	CMenuSpinControl aspect;
+	// Resonance3D: nv2a_r_anisotropy (1, 2, 4 or 8), live; the index is
+	// the log2 of the ratio
+	CMenuSpinControl anisotropy;
 	CMenuPicButton	done;
 	// XM.1 item 12: A Select / B Back / D-pad Adjust - both sliders above
 	// are D-pad-adjustable (Slider.cpp, Utils.h's IsLeftArrow/IsRightArrow
@@ -268,26 +271,45 @@ void CMenuVidOptions::_Init( void )
 
 	filtering.szName = L( "Texture filtering" );
 	filtering.SetCoord( 72, 400 );
+	filtering.onChanged = CMenuEditable::WriteCvarCb; // live, as Aspect
+
+	static const char *anisoItems[] = { "Off", "2x", "4x", "8x" };
+	static CStringArrayModel anisoModel( anisoItems, V_ARRAYSIZE( anisoItems ));
+	anisotropy.SetNameAndStatus( L( "Anisotropic filtering" ), L( "Sharper floors and walls seen at an angle" ));
+	anisotropy.Setup( &anisoModel );
+	anisotropy.onChanged = CMenuEditable::WriteCvarCb;
+	SET_EVENT_MULTI( anisotropy.onCvarGet,
+	{
+		CMenuSpinControl *sc = (CMenuSpinControl *)pSelf;
+		float v = EngFuncs::GetCvarFloat( sc->CvarName( ));
+		sc->SetOriginalValue( v >= 8.0f ? 3.0f : v >= 4.0f ? 2.0f : v >= 2.0f ? 1.0f : 0.0f ); // the index UpdateEditable shows
+	});
+	SET_EVENT_MULTI( anisotropy.onCvarWrite,
+	{
+		CMenuSpinControl *sc = (CMenuSpinControl *)pSelf;
+		EngFuncs::CvarSetValue( sc->CvarName(), (float)( 1 << (int)sc->CvarValue( )));
+	});
+	anisotropy.SetRect( 72, 470, 300, 32 );
 
 	static const char *aspectItems[] = { "Dashboard", "4:3", "16:9" };
 	static CStringArrayModel aspectModel( aspectItems, V_ARRAYSIZE( aspectItems ));
 	aspect.SetNameAndStatus( L( "Aspect" ), L( "16:9 draws a wider view for a widescreen TV" ));
 	aspect.Setup( &aspectModel );
 	aspect.onChanged = CMenuEditable::WriteCvarCb;
-	aspect.SetRect( 72, 480, 300, 32 );
+	aspect.SetRect( 72, 540, 300, 32 );
 
 	videoOutput.iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
 	videoOutput.szName = videoOutputText;
 	videoOutput.colorBase = uiColorHelp;
 	videoOutput.SetCharSize( QM_SMALLFONT );
-	videoOutput.SetRect( 72, 530, 400, 26 );
+	videoOutput.SetRect( 72, 590, 400, 26 );
 	videoOutputText[0] = '\0';
 
 	done.SetNameAndStatus( L( "GameUI_OK" ), nullptr );
 	done.SetPicture( PC_DONE );
 	done.onReleased = VoidCb( &CMenuVidOptions::SaveAndPopMenu );
 	done.iFlags |= QMF_NOTIFY;
-	done.SetCoord( 72, 580 );
+	done.SetCoord( 72, 640 );
 
 	// Corrected against the design canvas directly (docs/r3d/design):
 	// D-pad first, not last, and its own verb is "Move - Adjust", not
@@ -301,6 +323,7 @@ void CMenuVidOptions::_Init( void )
 	AddItem( gammaIntensity );
 	AddItem( brightness );
 	AddItem( filtering );
+	AddItem( anisotropy );
 	AddItem( aspect );
 	AddItem( videoOutput );
 	AddItem( done );
@@ -310,6 +333,7 @@ void CMenuVidOptions::_Init( void )
 	gammaIntensity.LinkCvar( "gamma" );
 	brightness.LinkCvar( "brightness" );
 	aspect.LinkCvar( "r3d_vid_aspect", CMenuEditable::CVAR_VALUE );
+	anisotropy.LinkCvar( "nv2a_r_anisotropy", CMenuEditable::CVAR_VALUE );
 	// skip filtering.LinkCvar, different names in ref_gl and ref_soft -
 	// Reload() links it to sw_texfilt every time, ref_gl never being
 	// active on Xbox
@@ -491,6 +515,13 @@ void CMenuVidOptions::Reload()
 {
 	bool gl_active = !strnicmp( EngFuncs::GetCvarString( "r_refdll_loaded" ), "gl", 2 );
 	bool soft_active = !stricmp( EngFuncs::GetCvarString( "r_refdll_loaded" ), "soft" );
+#if XASH_XBOX
+	// Resonance3D: the console's renderer is nv2a; its nv2a_r_texturenearest
+	// is gl_texture_nearest's counterpart, inverted the same way below
+	bool nv2a_active = !stricmp( EngFuncs::GetCvarString( "r_refdll_loaded" ), "nv2a" );
+#else
+	bool nv2a_active = false;
+#endif
 
 #if !XASH_XBOX
 	detailtex.SetGrayed( !gl_active );
@@ -526,11 +557,10 @@ void CMenuVidOptions::Reload()
 	overbright.SetInactive( !gl_active );
 #endif // !XASH_XBOX
 
-	// Xbox needs this half unconditionally: ref_gl is never linked here
-	// (r_refdll_loaded is always "soft"), so this always takes the
-	// soft_active branch below, linking filtering to sw_texfilt - the
-	// same runtime dispatch stock PC uses, unmodified.
-	if( soft_active || gl_active )
+	// Xbox: the renderer is nv2a (r_refdll_loaded "nv2a"), which takes the
+	// inverted branch below with nv2a_r_texturenearest; before that branch
+	// existed the row was greyed out on the console.
+	if( soft_active || gl_active || nv2a_active )
 	{
 		filtering.SetGrayed( false );
 		filtering.SetInactive( false );
@@ -558,7 +588,7 @@ void CMenuVidOptions::Reload()
 				else EngFuncs::CvarSetValue( cb->CvarName(), 1.0f );
 			});
 
-			filtering.LinkCvar( "gl_texture_nearest" );
+			filtering.LinkCvar( nv2a_active ? "nv2a_r_texturenearest" : "gl_texture_nearest" );
 		}
 	}
 	else
