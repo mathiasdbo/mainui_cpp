@@ -73,6 +73,8 @@ private:
 	// without that would be exactly the "never guess a constant" this
 	// project's own rules forbid.
 	CMenuAction heading;
+	// Resonance3D: speech's own volume (r3d_speech_volume, live)
+	CMenuSlider voiceVolume;
 	// Resonance3D #182-#184: the mix on the APU (r3d_snd_hw, read at boot)
 	CMenuCheckBox hardware;
 	CMenuPicButton done;
@@ -103,6 +105,7 @@ void CMenuAudio::GetConfig( void )
 	musicVolume.LinkCvar( "MP3Volume" );
 	suitVolume.LinkCvar( "suitvolume" );
 #if XASH_XBOX
+	voiceVolume.LinkCvar( "r3d_speech_volume" );
 	hardware.LinkCvar( "r3d_snd_hw" );
 #endif
 
@@ -146,6 +149,7 @@ void CMenuAudio::SaveAndPopMenu()
 	musicVolume.WriteCvar();
 	suitVolume.WriteCvar();
 #if XASH_XBOX
+	voiceVolume.WriteCvar();
 	hardware.WriteCvar();
 #else
 	vibration.WriteCvar();
@@ -206,15 +210,23 @@ void CMenuAudio::_Init( void )
 	// the speech fed to them, as the userconfig.d lines turn on one by
 	// one; the device opens before the configs run, so it applies at the
 	// next start (BaseWindow's host_writeconfig keeps it)
+	// sentences and the voice and stream channels, on top of the
+	// effects volume: the engine scales them as it sets their volumes
+	voiceVolume.szName = L( "Voices volume" );
+	voiceVolume.Setup( 0.0, 1.0, 0.05f );
+	voiceVolume.onChanged = CMenuEditable::WriteCvarCb;
+	voiceVolume.SetCoord( 72, 460 );
+	voiceVolume.size.w = 300;
+
 	hardware.SetNameAndStatus( L( "Hardware audio" ), L( "Mix on the Xbox's sound chip (next start)" ) );
 	hardware.iFlags |= QMF_NOTIFY;
-	hardware.SetCoord( 72, 440 );
+	hardware.SetCoord( 72, 500 );
 
 	done.SetNameAndStatus( L( "Done" ), nullptr );
 	done.SetPicture( PC_DONE );
 	done.onReleased = VoidCb( &CMenuAudio::SaveAndPopMenu );
 	done.iFlags |= QMF_NOTIFY;
-	done.SetCoord( 72, 500 );
+	done.SetCoord( 72, 560 );
 
 	// Corrected against the design canvas directly (docs/r3d/design):
 	// D-pad first, not last, and its own verb is "Move - Adjust", not
@@ -229,6 +241,7 @@ void CMenuAudio::_Init( void )
 	AddItem( soundVolume );
 	AddItem( musicVolume );
 	AddItem( suitVolume );
+	AddItem( voiceVolume );
 	AddItem( hardware );
 	AddItem( done );
 	AddItem( legend );
