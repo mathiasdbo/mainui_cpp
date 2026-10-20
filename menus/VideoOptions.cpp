@@ -269,7 +269,7 @@ void CMenuVidOptions::_Init( void )
 	filtering.szName = L( "Texture filtering" );
 	filtering.SetCoord( 72, 400 );
 
-	static const char *aspectItems[] = { "As the Dashboard", "4:3", "16:9 (widescreen TV)" };
+	static const char *aspectItems[] = { "Dashboard", "4:3", "16:9" };
 	static CStringArrayModel aspectModel( aspectItems, V_ARRAYSIZE( aspectItems ));
 	aspect.SetNameAndStatus( L( "Aspect" ), L( "16:9 draws a wider view for a widescreen TV" ));
 	aspect.Setup( &aspectModel );
