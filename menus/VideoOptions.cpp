@@ -27,6 +27,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "Action.h"
 #if XASH_XBOX
 #include "Legend.h"
+#include "SpinControl.h"
+#include "StringArrayModel.h"
 #endif
 
 #define ART_BANNER	  	"gfx/shell/head_vidoptions"
@@ -71,6 +73,9 @@ public:
 	// own Show() runs on every visit to this screen, not just once.
 	CMenuAction	videoOutput;
 	char		videoOutputText[64];
+	// Resonance3D: r3d_vid_aspect - as the Dashboard is set, 4:3, or
+	// anamorphic 16:9 (vid_common.c's VID_XboxRenderWidth), live
+	CMenuSpinControl aspect;
 	CMenuPicButton	done;
 	// XM.1 item 12: A Select / B Back / D-pad Adjust - both sliders above
 	// are D-pad-adjustable (Slider.cpp, Utils.h's IsLeftArrow/IsRightArrow
@@ -264,18 +269,25 @@ void CMenuVidOptions::_Init( void )
 	filtering.szName = L( "Texture filtering" );
 	filtering.SetCoord( 72, 400 );
 
+	static const char *aspectItems[] = { "As the Dashboard", "4:3", "16:9 (widescreen TV)" };
+	static CStringArrayModel aspectModel( aspectItems, V_ARRAYSIZE( aspectItems ));
+	aspect.SetNameAndStatus( L( "Aspect" ), L( "16:9 draws a wider view for a widescreen TV" ));
+	aspect.Setup( &aspectModel );
+	aspect.onChanged = CMenuEditable::WriteCvarCb;
+	aspect.SetRect( 72, 480, 300, 32 );
+
 	videoOutput.iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
 	videoOutput.szName = videoOutputText;
 	videoOutput.colorBase = uiColorHelp;
 	videoOutput.SetCharSize( QM_SMALLFONT );
-	videoOutput.SetRect( 72, 450, 400, 26 );
+	videoOutput.SetRect( 72, 530, 400, 26 );
 	videoOutputText[0] = '\0';
 
 	done.SetNameAndStatus( L( "GameUI_OK" ), nullptr );
 	done.SetPicture( PC_DONE );
 	done.onReleased = VoidCb( &CMenuVidOptions::SaveAndPopMenu );
 	done.iFlags |= QMF_NOTIFY;
-	done.SetCoord( 72, 510 );
+	done.SetCoord( 72, 580 );
 
 	// Corrected against the design canvas directly (docs/r3d/design):
 	// D-pad first, not last, and its own verb is "Move - Adjust", not
@@ -289,6 +301,7 @@ void CMenuVidOptions::_Init( void )
 	AddItem( gammaIntensity );
 	AddItem( brightness );
 	AddItem( filtering );
+	AddItem( aspect );
 	AddItem( videoOutput );
 	AddItem( done );
 	AddItem( testImage );
@@ -296,6 +309,7 @@ void CMenuVidOptions::_Init( void )
 
 	gammaIntensity.LinkCvar( "gamma" );
 	brightness.LinkCvar( "brightness" );
+	aspect.LinkCvar( "r3d_vid_aspect", CMenuEditable::CVAR_VALUE );
 	// skip filtering.LinkCvar, different names in ref_gl and ref_soft -
 	// Reload() links it to sw_texfilt every time, ref_gl never being
 	// active on Xbox
@@ -455,8 +469,11 @@ void CMenuVidOptions::_VidInit()
 	// documented freeze point without a version check it doesn't have.
 	// vid_width/vid_height already exist and already mirror the real,
 	// X5-clamped 640x480.
-	int width = (int)EngFuncs::GetCvarFloat( "vid_width" );
-	int height = (int)EngFuncs::GetCvarFloat( "vid_height" );
+	// The output mode is the window's ("width"/"height", 640x480):
+	// vid_width is the screen the game lays out, 854 wide under
+	// anamorphic 16:9 (Resonance3D, r3d_vid_aspect).
+	int width = (int)EngFuncs::GetCvarFloat( "width" );
+	int height = (int)EngFuncs::GetCvarFloat( "height" );
 	int refresh = (int)EngFuncs::GetCvarFloat( "vid_refresh" );
 	const char *aspect = EngFuncs::GetCvarString( "vid_aspect" );
 
