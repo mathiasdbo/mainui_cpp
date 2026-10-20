@@ -79,6 +79,8 @@ public:
 	// Resonance3D: nv2a_r_anisotropy (1, 2, 4 or 8), live; the index is
 	// the log2 of the ratio
 	CMenuSpinControl anisotropy;
+	// Resonance3D: nv2a_r_aa - off, 2x, Quincunx, 4x (the index), live
+	CMenuSpinControl antialias;
 	CMenuPicButton	done;
 	// XM.1 item 12: A Select / B Back / D-pad Adjust - both sliders above
 	// are D-pad-adjustable (Slider.cpp, Utils.h's IsLeftArrow/IsRightArrow
@@ -289,27 +291,34 @@ void CMenuVidOptions::_Init( void )
 		CMenuSpinControl *sc = (CMenuSpinControl *)pSelf;
 		EngFuncs::CvarSetValue( sc->CvarName(), (float)( 1 << (int)sc->CvarValue( )));
 	});
-	anisotropy.SetRect( 72, 470, 300, 32 );
+	anisotropy.SetRect( 72, 460, 300, 32 );
+
+	static const char *aaItems[] = { "Off", "2x", "Quincunx", "4x" };
+	static CStringArrayModel aaModel( aaItems, V_ARRAYSIZE( aaItems ));
+	antialias.SetNameAndStatus( L( "Anti-aliasing" ), L( "Smoother edges in the 3D view" ));
+	antialias.Setup( &aaModel );
+	antialias.onChanged = CMenuEditable::WriteCvarCb;
+	antialias.SetRect( 72, 520, 300, 32 );
 
 	static const char *aspectItems[] = { "Dashboard", "4:3", "16:9" };
 	static CStringArrayModel aspectModel( aspectItems, V_ARRAYSIZE( aspectItems ));
 	aspect.SetNameAndStatus( L( "Aspect" ), L( "16:9 draws a wider view for a widescreen TV" ));
 	aspect.Setup( &aspectModel );
 	aspect.onChanged = CMenuEditable::WriteCvarCb;
-	aspect.SetRect( 72, 540, 300, 32 );
+	aspect.SetRect( 72, 580, 300, 32 );
 
 	videoOutput.iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
 	videoOutput.szName = videoOutputText;
 	videoOutput.colorBase = uiColorHelp;
 	videoOutput.SetCharSize( QM_SMALLFONT );
-	videoOutput.SetRect( 72, 590, 400, 26 );
+	videoOutput.SetRect( 72, 622, 400, 26 );
 	videoOutputText[0] = '\0';
 
 	done.SetNameAndStatus( L( "GameUI_OK" ), nullptr );
 	done.SetPicture( PC_DONE );
 	done.onReleased = VoidCb( &CMenuVidOptions::SaveAndPopMenu );
 	done.iFlags |= QMF_NOTIFY;
-	done.SetCoord( 72, 640 );
+	done.SetCoord( 72, 662 );
 
 	// Corrected against the design canvas directly (docs/r3d/design):
 	// D-pad first, not last, and its own verb is "Move - Adjust", not
@@ -324,6 +333,7 @@ void CMenuVidOptions::_Init( void )
 	AddItem( brightness );
 	AddItem( filtering );
 	AddItem( anisotropy );
+	AddItem( antialias );
 	AddItem( aspect );
 	AddItem( videoOutput );
 	AddItem( done );
@@ -334,6 +344,7 @@ void CMenuVidOptions::_Init( void )
 	brightness.LinkCvar( "brightness" );
 	aspect.LinkCvar( "r3d_vid_aspect", CMenuEditable::CVAR_VALUE );
 	anisotropy.LinkCvar( "nv2a_r_anisotropy", CMenuEditable::CVAR_VALUE );
+	antialias.LinkCvar( "nv2a_r_aa", CMenuEditable::CVAR_VALUE );
 	// skip filtering.LinkCvar, different names in ref_gl and ref_soft -
 	// Reload() links it to sw_texfilt every time, ref_gl never being
 	// active on Xbox
