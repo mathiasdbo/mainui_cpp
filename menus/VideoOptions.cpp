@@ -245,7 +245,7 @@ void CMenuVidOptions::_Init( void )
 	hTestImage = EngFuncs::PIC_Load( ART_GAMMA, PIC_KEEP_SOURCE | PIC_EXPAND_SOURCE );
 
 	testImage.iFlags = QMF_INACTIVE;
-	testImage.SetRect( 390, 165, 480, 450 );
+	testImage.SetRect( 390, 125, 480, 450 );
 	testImage.SetPicture( ART_GAMMA );
 
 	heading.iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
@@ -256,26 +256,26 @@ void CMenuVidOptions::_Init( void )
 	heading.szName = L( "Display" );
 	heading.colorBase = uiColorHeading;
 	heading.SetCharSize( QM_BIGFONT );
-	heading.SetRect( 72, 140, 400, 32 );
+	heading.SetRect( 72, 100, 400, 32 );
 
 	// Codex review round 1 (item 8/6's own lesson, applied not
 	// re-discovered): CMenuSlider draws its label above its SetCoord y,
 	// so the first slider reuses stock Audio.cpp's own proven-safe
 	// y=280, clear of the heading above it.
 	gammaIntensity.szName = L( "GameUI_Gamma" );
-	gammaIntensity.SetCoord( 72, 220 );
+	gammaIntensity.SetCoord( 72, 180 );
 	gammaIntensity.Setup( 0.0, 1.0, 0.025 );
 	gammaIntensity.onChanged = VoidCb( &CMenuVidOptions::UpdateConfig );
 	gammaIntensity.onCvarGet = VoidCb( &CMenuVidOptions::GetConfig );
 
 	brightness.szName = L( "GameUI_Brightness" );
-	brightness.SetCoord( 72, 280 );
+	brightness.SetCoord( 72, 240 );
 	brightness.Setup( 0, 1.0, 0.025 );
 	brightness.onChanged = VoidCb( &CMenuVidOptions::UpdateConfig );
 	brightness.onCvarGet = VoidCb( &CMenuVidOptions::GetConfig );
 
 	filtering.szName = L( "Texture filtering" );
-	filtering.SetCoord( 72, 340 );
+	filtering.SetCoord( 72, 286 );
 	filtering.onChanged = CMenuEditable::WriteCvarCb; // live, as Aspect
 
 	static const char *anisoItems[] = { "Off", "2x", "4x", "8x" };
@@ -294,41 +294,41 @@ void CMenuVidOptions::_Init( void )
 		CMenuSpinControl *sc = (CMenuSpinControl *)pSelf;
 		EngFuncs::CvarSetValue( sc->CvarName(), (float)( 1 << (int)sc->CvarValue( )));
 	});
-	anisotropy.SetRect( 72, 400, 300, 32 );
+	anisotropy.SetRect( 72, 360, 300, 32 );
 
 	static const char *aaItems[] = { "Off", "2x", "Quincunx", "4x" };
 	static CStringArrayModel aaModel( aaItems, V_ARRAYSIZE( aaItems ));
 	antialias.SetNameAndStatus( L( "Anti-aliasing" ), L( "Smoother edges in the 3D view; no 4x at 720p" ));
 	antialias.Setup( &aaModel );
 	antialias.onChanged = CMenuEditable::WriteCvarCb;
-	antialias.SetRect( 72, 460, 300, 32 );
+	antialias.SetRect( 72, 432, 300, 32 );
 
 	static const char *aspectItems[] = { "Dashboard", "4:3", "16:9" };
 	static CStringArrayModel aspectModel( aspectItems, V_ARRAYSIZE( aspectItems ));
 	aspect.SetNameAndStatus( L( "Aspect" ), L( "16:9 draws a wider view for a widescreen TV" ));
 	aspect.Setup( &aspectModel );
 	aspect.onChanged = CMenuEditable::WriteCvarCb;
-	aspect.SetRect( 72, 520, 300, 32 );
+	aspect.SetRect( 72, 504, 300, 32 );
 
 	static const char *modeItems[] = { "640x480", "1280x720" };
 	static CStringArrayModel modeModel( modeItems, V_ARRAYSIZE( modeItems ));
 	videoMode.SetNameAndStatus( L( "Video mode" ), L( "From the next start; 720p needs an HDTV pack and 720p on in the Dashboard" ));
 	videoMode.Setup( &modeModel );
 	videoMode.onChanged = CMenuEditable::WriteCvarCb;
-	videoMode.SetRect( 72, 580, 300, 32 );
+	videoMode.SetRect( 72, 576, 300, 32 );
 
 	videoOutput.iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
 	videoOutput.szName = videoOutputText;
 	videoOutput.colorBase = uiColorHelp;
 	videoOutput.SetCharSize( QM_SMALLFONT );
-	videoOutput.SetRect( 72, 622, 400, 26 );
+	videoOutput.SetRect( 390, 590, 480, 26 ); // under the test image: the left column is full
 	videoOutputText[0] = '\0';
 
 	done.SetNameAndStatus( L( "GameUI_OK" ), nullptr );
 	done.SetPicture( PC_DONE );
 	done.onReleased = VoidCb( &CMenuVidOptions::SaveAndPopMenu );
 	done.iFlags |= QMF_NOTIFY;
-	done.SetCoord( 72, 662 );
+	done.SetCoord( 72, 640 );
 
 	// Corrected against the design canvas directly (docs/r3d/design):
 	// D-pad first, not last, and its own verb is "Move - Adjust", not
