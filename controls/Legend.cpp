@@ -88,8 +88,13 @@ void CMenuLegend::VidInit( void )
 	// back on the exact real pixel target regardless of the actual scale
 	// factor - not accumulated: recomputed from m_iRealX/Y fresh every
 	// call, since VidInit() can run again on a later Show().
-	pos.x = ( m_iRealX / ScreenWidth ) * 1024.0f;
-	pos.y = ( m_iRealY / ScreenHeight ) * 768.0f;
+	// Resonance3D (#190): pixels of the 480-line screen the layout was
+	// drawn for, not of the output's - the layout space is height-scaled
+	// (768 for the screen's height), so at 720p the legend keeps its place
+	// near the bottom. At 480 lines, 4:3 or anamorphic 16:9, this is the
+	// same position as dividing by the screen's own size.
+	pos.x = m_iRealX * ( 768.0f / 480.0f );
+	pos.y = m_iRealY * ( 768.0f / 480.0f );
 
 	BaseClass::VidInit();
 
