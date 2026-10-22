@@ -174,9 +174,20 @@ void CMenuLegend::Draw( void )
 		case LEGEND_Y:
 		{
 			int idx = m_entries[i].glyph - LEGEND_A;
+			// The disc is sized from the letter, not the row: at the row's
+			// height the small font's letter filled it edge to edge. 1.5x
+			// the character height leaves a quarter of it clear on every
+			// side, and the disc stays centred on the row (it may reach a
+			// little above and below it). Drawn with blending
+			// (QM_DRAWTRANS): legend_button.tga is white throughout and
+			// only its alpha shapes the circle, so QM_DRAWNORMAL drew its
+			// soft edge - and its corners - opaque.
+			int disc = Q_max( glyphSize, (int)( m_scChSize * 1.5f ));
+			int dy = y + ( glyphSize - disc ) / 2;
 
-			UI_DrawPic( x, y, glyphSize, glyphSize, s_legendFaceColor[idx], "gfx/shell/legend_button" );
-			UI_DrawString( font, x, y, glyphSize, glyphSize, s_legendFaceLetter[idx], uiColorWhite, m_scChSize, QM_CENTER );
+			UI_DrawPic( x, dy, disc, disc, s_legendFaceColor[idx], "gfx/shell/legend_button", QM_DRAWTRANS );
+			UI_DrawString( font, x, dy, disc, disc, s_legendFaceLetter[idx], uiColorWhite, m_scChSize, QM_CENTER );
+			glyphWidth = disc;
 			break;
 		}
 		case LEGEND_DPAD:
