@@ -122,6 +122,47 @@ void CMenuLegend::SetVisible( int index, bool visible )
 
 /*
 =================
+CMenuLegend::DrawPill
+
+legend_button.tga cut in three: its left half for the left end, its
+right half for the right end, and its middle two columns stretched
+across whatever lies between - the same soft edge the discs have, all
+the way round. A rectangle filled between two half discs would not
+match it: the disc fades out over its outer quarter.
+=================
+*/
+void CMenuLegend::DrawPill( int x, int y, int w, int h, unsigned int color )
+{
+	CImage pic = "gfx/shell/legend_button";
+	HIMAGE hPic = pic.Handle();
+	int r, g, b, a;
+	if( !hPic )
+		return;
+
+	int tw = EngFuncs::PIC_Width( hPic );
+	int th = EngFuncs::PIC_Height( hPic );
+	UnpackRGBA( r, g, b, a, color );
+	EngFuncs::PIC_Set( hPic, r, g, b, a );
+
+	int cap = Q_min( h / 2, w / 2 );
+	wrect_t left = { 0, tw / 2, 0, th };
+	wrect_t mid = { tw / 2 - 1, tw / 2 + 1, 0, th };
+	wrect_t right = { tw / 2, tw, 0, th };
+
+	// The colour again before every piece: each draw resets it to white
+	// (PIC_DrawGeneric, cl_gameui.c).
+	EngFuncs::PIC_DrawTrans( x, y, cap, h, &left );
+	if( w > cap * 2 )
+	{
+		EngFuncs::PIC_Set( hPic, r, g, b, a );
+		EngFuncs::PIC_DrawTrans( x + cap, y, w - cap * 2, h, &mid );
+	}
+	EngFuncs::PIC_Set( hPic, r, g, b, a );
+	EngFuncs::PIC_DrawTrans( x + w - cap, y, cap, h, &right );
+}
+
+/*
+=================
 CMenuLegend::Draw
 
 Purely descriptive (item 12's own "it describes, it does not dispatch") -
@@ -239,20 +280,24 @@ void CMenuLegend::Draw( void )
 		}
 		case LEGEND_START:
 		{
-			// Empty on purpose - no letter, no word. Narrower than the
-			// face-button slot (the canvas's own pill reads as roughly
-			// glyph-height tall by 1.6x wide, not the 2x a boxed "START"
-			// label needed).
-			glyphWidth = (int)( glyphSize * 1.6f );
+			// Empty on purpose - no letter, no word, as the canvas draws it
+			// (the verb sits outside, like every other glyph's). The canvas's
+			// pill (`.pb.st`) is fully rounded, so this one is too: the same
+			// height as the face-button discs and centred on the row the same
+			// way, its ends and soft edge cut from legend_button.tga - drawn
+			// as rectangles it had square corners next to round buttons.
+			// Filled, then bordered: a dark fill inside a grey border rather
+			// than a bare outline in the legend's text colour. On a black
+			// background the fill is nearly invisible; over the in-game scene
+			// the pause screens dim behind it, it is what keeps the pill
+			// reading as a button.
+			int disc = Q_max( glyphSize, (int)( m_scChSize * 1.5f ));
+			int dy = y + ( glyphSize - disc ) / 2;
+			int border = Q_max( 1, (int)( 2 * uiStatic.scaleX ));
 
-			// Filled, then bordered - the canvas draws this pill as a dark
-			// fill inside a grey border, not as a bare outline in the
-			// legend's text colour (which is what this drew until
-			// 2026-09-18). On a black background the fill is nearly
-			// invisible; over the in-game scene the pause screens dim
-			// behind it, it is what keeps the pill reading as a button.
-			UI_FillRect( x, y, glyphWidth, glyphSize, LEGEND_START_FILL );
-			UI_DrawRectangleExt( x, y, glyphWidth, glyphSize, LEGEND_START_BORDER, Q_max( 1, (int)( 2 * uiStatic.scaleX ) ), QM_TOP | QM_BOTTOM | QM_LEFT | QM_RIGHT );
+			glyphWidth = disc * 2;
+			DrawPill( x, dy, glyphWidth, disc, LEGEND_START_BORDER );
+			DrawPill( x + border, dy + border, glyphWidth - border * 2, disc - border * 2, LEGEND_START_FILL );
 			break;
 		}
 		}

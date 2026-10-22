@@ -91,6 +91,10 @@ public:
 	static const int MAX_ENTRIES = 5;
 
 private:
+	// START: a rounded pill in the given colour, x/y/w/h in real
+	// pixels, its round ends and soft edge cut from legend_button.tga.
+	void DrawPill( int x, int y, int w, int h, unsigned int color );
+
 	// Codex review (round 1): a fixed per-entry slot clipped a longer
 	// translation's own verb text against a shorter language's own
 	// assumed width. Draw() now measures each verb's real rendered
