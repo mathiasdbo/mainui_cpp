@@ -162,6 +162,14 @@ private:
 	// focus can change (mouse move, D-pad, Tab) - this row is decorative
 	// chrome, not something a one-frame-late toggle can visibly break.
 	void Think( void ) override;
+	// Resonance3D (#191): the selected save's thumbnail is a texture
+	// (~280 KiB at 720p) the screen kept after it closed - into the next
+	// map, loaded with the console's memory at its lowest
+	void Hide( void ) override
+	{
+		levelShot.SetSaveName( nullptr );
+		CMenuFramework::Hide();
+	}
 #endif
 
 	void LoadGame();
@@ -432,6 +440,9 @@ void CMenuLoadGame::LoadGame()
 	const char *name = savesListModel[savesList.GetCurrentIndex( )].name;
 
 	snprintf( cmd, sizeof( cmd ), "load \"%s\"\n", name );
+#if XASH_XBOX
+	levelShot.SetSaveName( nullptr ); // #191: not held through the load
+#endif
 	EngFuncs::StopBackgroundTrack( );
 	EngFuncs::ClientCmd( false, cmd );
 	UI_CloseMenu();
@@ -449,6 +460,9 @@ void CMenuLoadGame::SaveGame()
 	EngFuncs::PIC_Free( cmd );
 
 	snprintf( cmd, sizeof( cmd ), "save \"%s\"\n", name );
+#if XASH_XBOX
+	levelShot.SetSaveName( nullptr ); // #191: nor through the save
+#endif
 	EngFuncs::ClientCmd( false, cmd );
 	UI_CloseMenu();
 }
