@@ -84,9 +84,12 @@ public:
 			saveshot.ForceUnload();
 		else
 		{
-			char path[128];
-			snprintf( path, sizeof( path ), "save/%s.bmp", name );
+			// CImage keeps the pointer it loaded with and ForceUnload frees
+			// by that name: a stack buffer left it pointing at garbage, the
+			// previous shot was never freed, and every save looked at stayed
+			// resident (Resonance3D docs/r3d/divergences.md #199)
 			saveshot.ForceUnload();
+			snprintf( path, sizeof( path ), "save/%s.bmp", name );
 			if( EngFuncs::FileExists( path, true ) )
 				saveshot.Load( path );
 
@@ -103,6 +106,8 @@ public:
 
 	CImage fallback;
 	CImage saveshot;
+private:
+	char path[128] = ""; // saveshot's name while it is loaded (#199)
 };
 
 class CMenuSavesListModel : public CMenuBaseModel, public CUtlVector<save_t>
