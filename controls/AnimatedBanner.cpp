@@ -46,8 +46,46 @@ static bool UI_GetTargaImageDimensions( const char *path, Size &sz )
 	return true;
 }
 
+#if XASH_XBOX
+CMenuAnimatedBanner *CMenuAnimatedBanner::s_pLoaded = NULL;
+
+void CMenuAnimatedBanner::ReleaseImages()
+{
+	CMenuAnimatedBanner *self = s_pLoaded;
+	char name[256];
+
+	if( !self || self->m_bReleased )
+		return;
+
+	// by name: the blurred images' CImage paths point at TryLoad's stack
+	EngFuncs::PIC_Free( ART_LOGO );
+	EngFuncs::PIC_Free( ART_BLIP1 );
+	EngFuncs::PIC_Free( ART_BLIP2 );
+	for( int i = 0; i < ART_BLUR_NUM; i++ )
+	{
+		snprintf( name, sizeof( name ), ART_BLUR, i );
+		EngFuncs::PIC_Free( name );
+		snprintf( name, sizeof( name ), ART_BLUR_BLIP, i );
+		EngFuncs::PIC_Free( name );
+	}
+	self->logo.Reset();
+	for( int i = 0; i < ART_BLIP_NUM; i++ )
+		self->logoBlip[i].Reset();
+	for( int i = 0; i < ART_BLUR_NUM; i++ )
+	{
+		self->logoBlur[i].Reset();
+		self->logoBlurBlip[i].Reset();
+	}
+	self->m_bReleased = true;
+}
+#endif
+
 bool CMenuAnimatedBanner::TryLoad()
 {
+#if XASH_XBOX
+	s_pLoaded = this;
+	m_bReleased = false;
+#endif
 	logo.Load( ART_LOGO );
 	if( !logo.IsValid( ))
 		return false;
@@ -167,6 +205,11 @@ void CMenuAnimatedBanner::Draw()
 {
 	if( EngFuncs::ClientInGame() && EngFuncs::GetCvarFloat( "ui_renderworld" ) != 0.0f )
 		return;
+
+#if XASH_XBOX
+	if( m_bReleased && !TryLoad())
+		return; // #196: not there to reload; the menu draws without it
+#endif
 
 	Point logoPt( m_fLogoImageX, m_nLogoImageY );
 	Size logoSz = trueLogoSz * scale;

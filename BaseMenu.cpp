@@ -27,6 +27,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "Btns.h"
 #include "YesNoMessageBox.h"
 #include "BackgroundBitmap.h"
+#include "AnimatedBanner.h" // #196: CMenuAnimatedBanner::ReleaseImages
 #include "FontManager.h"
 #include "cursor_type.h"
 #include "utflib.h"
@@ -657,6 +658,7 @@ static void UI_ReleaseFonts_f( void )
 	s_bPendingLowMemRelease = false;
 	g_FontMgr->ReleaseFonts();
 	CMenuBackgroundBitmap::ReleaseBackground();
+	CMenuAnimatedBanner::ReleaseImages(); // #196
 }
 
 /*

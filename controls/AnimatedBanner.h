@@ -35,7 +35,17 @@ public:
 	virtual void Think() override;
 
 	virtual bool TryLoad();
+#if XASH_XBOX
+	// Resonance3D (docs/r3d/divergences.md #196): its twelve images (1.2 MiB
+	// of textures) given back while a map loads and plays - only the main
+	// menu draws them, never the pause menu; the next Draw reloads them.
+	static void ReleaseImages();
+#endif
 private:
+#if XASH_XBOX
+	static CMenuAnimatedBanner *s_pLoaded;
+	bool m_bReleased = false;
+#endif
 	void RandomizeGoalTime( float time );
 	void RandomizeSpeed( float initial_speed );
 	void RandomizeBlipTime( float time );
