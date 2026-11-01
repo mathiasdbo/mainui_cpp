@@ -1,3 +1,16 @@
+# Resonance3D fork
+
+This is [FWGS/mainui_cpp](https://github.com/FWGS/mainui_cpp) with the
+changes [Resonance3D](https://github.com/mathiasdbo/Resonance3D) needs to run the menu on the Original Xbox, where
+the whole game shares 64 MB with the GPU. It is pulled in as
+`3rdparty/mainui`, from the `resonance3d` branch.
+
+Examples of what it changes on the console: a font atlas cache stored as an
+8-, 16- or 32-bit TGA, fonts released when a map load starts and restored
+afterwards, a glow behind the focused item, and the audio menu's "Hardware
+audio" and "Voices volume" controls. The PC build is not changed. Each
+deviation is in Resonance3D's [`docs/r3d/divergences.md`](https://github.com/mathiasdbo/Resonance3D/blob/main/docs/r3d/divergences.md). Upstream's README follows.
+
 # mainui_cpp
 
 Main Menu UI for Xash3D FWGS engine, built entirely in C++.
