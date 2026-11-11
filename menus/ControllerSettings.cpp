@@ -76,6 +76,8 @@ public:
 		m_bYawWasInverted( false ), m_flOriginalPitchMagnitude( 0.0f ),
 		m_flOriginalYawMagnitude( 0.0f ), m_flInitialSliderValue( 0.0f ) { }
 
+	bool KeyDown( int key ) override;
+
 private:
 	void _Init( void ) override;
 	void _VidInit( void ) override;
@@ -196,6 +198,32 @@ void CMenuControllerSettings::UpdateDeadZoneLabels( void )
 		snprintf( deadZoneLabel[i], sizeof( deadZoneLabel[i] ), "%s: %d", L( s_deadZones[i].title ), (int)( shown + 0.5f ));
 		deadZone[i].szName = deadZoneLabel[i];
 	}
+}
+
+/*
+=================
+CMenuControllerSettings::KeyDown
+
+B/Escape saves, exactly as Done does. CMenuBaseWindow's own KeyDown calls
+Hide() for B/Escape (IsEscape, Utils.h, matches both) and never reaches
+SaveAndPopMenu(), so every change made here - the look sensitivity, invert,
+vibration, the keyboard row and the four dead zones - was dropped when the
+player left with B, which is how a console pad leaves a screen. Controls.cpp
+and Gamepad.cpp found the same bug in review and made every exit persist; this
+screen does the same by sending B through the one path Done uses (it writes
+the cvars, then host_writeconfig, then closes), so there is a single way to
+save, not two.
+=================
+*/
+bool CMenuControllerSettings::KeyDown( int key )
+{
+	if( UI::Key::IsEscape( key ))
+	{
+		SaveAndPopMenu();
+		return true;
+	}
+
+	return CMenuFramework::KeyDown( key );
 }
 
 /*
