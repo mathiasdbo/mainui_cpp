@@ -45,6 +45,30 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // default exactly.
 #define SENSITIVITY_SCALE 20.0f
 
+// The four stick dead zones, one slider each: the engine's own joy_*_deadzone
+// cvars (engine/client/input/in_joy.c), shown as the raw number the config
+// files and the packager use. An axis whose reading is inside its dead zone is
+// taken as not moved. Original Xbox pads rest well off centre (a stick left
+// alone can read -7424), so a dead zone below that makes the view turn, or the
+// player walk, by itself; the Xbox default is 8689 (common/defaults.h,
+// divergences.md #104). A worn stick can need more, hence 0..16000 - the same
+// choices the packager's Controller group offers.
+#define DEADZONE_MAX 16000.0f
+#define DEADZONE_STEP 500.0f
+
+static const struct
+{
+	const char *cvar;
+	const char *title;
+} s_deadZones[] =
+{
+	{ "joy_yaw_deadzone",     "Look stick, left-right" },
+	{ "joy_pitch_deadzone",   "Look stick, up-down" },
+	{ "joy_side_deadzone",    "Move stick, sideways" },
+	{ "joy_forward_deadzone", "Move stick, forward-back" },
+};
+#define NUM_DEADZONES ( sizeof( s_deadZones ) / sizeof( s_deadZones[0] ))
+
 class CMenuControllerSettings : public CMenuFramework
 {
 public:
@@ -57,6 +81,7 @@ private:
 	void _VidInit( void ) override;
 	void GetConfig( void );
 	void SaveAndPopMenu( void ) override;
+	void UpdateDeadZoneLabels( void );
 
 	CMenuAction heading;
 
@@ -64,6 +89,20 @@ private:
 	CMenuCheckBox invertLook;
 	CMenuCheckBox vibrationEnable;
 	CMenuCheckBox enableOsk;
+
+	// Right-hand column: the four dead zones. The slider control draws only a
+	// bar and its name, so the value is written into the name (deadZoneLabel).
+	CMenuAction deadZoneHeading;
+	CMenuSlider deadZone[NUM_DEADZONES];
+	char deadZoneLabel[NUM_DEADZONES][64];
+
+	// What GetConfig() found: the cvar's real value, and where the slider put
+	// it (it clamps to 0..16000 and steps by 500). Done writes a dead zone only
+	// when its slider moved, so opening this screen and pressing Done leaves an
+	// untouched value exactly as it was - 8689 stays 8689, not 8750 - the same
+	// care the look sensitivity slider takes above.
+	float m_flDeadZoneRaw[NUM_DEADZONES];
+	float m_flDeadZoneInitial[NUM_DEADZONES];
 
 	CMenuPicButton done;
 
@@ -128,6 +167,35 @@ void CMenuControllerSettings::GetConfig( void )
 
 	vibrationEnable.LinkCvar( "vibration_enable" );
 	enableOsk.LinkCvar( "osk_enable" );
+
+	for( size_t i = 0; i < NUM_DEADZONES; i++ )
+	{
+		m_flDeadZoneRaw[i] = EngFuncs::GetCvarFloat( s_deadZones[i].cvar );
+		deadZone[i].LinkCvar( s_deadZones[i].cvar );
+		m_flDeadZoneInitial[i] = deadZone[i].GetCurrentValue();
+	}
+	UpdateDeadZoneLabels();
+}
+
+/*
+=================
+CMenuControllerSettings::UpdateDeadZoneLabels
+
+The slider's name carries its value. An untouched slider shows the cvar's real
+value (which may be past the slider's 16000 end, or between its steps); once
+it moves, it shows where it is.
+=================
+*/
+void CMenuControllerSettings::UpdateDeadZoneLabels( void )
+{
+	for( size_t i = 0; i < NUM_DEADZONES; i++ )
+	{
+		float cur = deadZone[i].GetCurrentValue();
+		float shown = ( cur == m_flDeadZoneInitial[i] ) ? m_flDeadZoneRaw[i] : cur;
+
+		snprintf( deadZoneLabel[i], sizeof( deadZoneLabel[i] ), "%s: %d", L( s_deadZones[i].title ), (int)( shown + 0.5f ));
+		deadZone[i].szName = deadZoneLabel[i];
+	}
 }
 
 /*
@@ -155,6 +223,12 @@ void CMenuControllerSettings::SaveAndPopMenu( void )
 
 	vibrationEnable.WriteCvar();
 	enableOsk.WriteCvar();
+
+	for( size_t i = 0; i < NUM_DEADZONES; i++ )
+	{
+		if( deadZone[i].GetCurrentValue() != m_flDeadZoneInitial[i] )
+			EngFuncs::CvarSetValue( s_deadZones[i].cvar, deadZone[i].GetCurrentValue() );
+	}
 
 	CMenuFramework::SaveAndPopMenu();
 }
@@ -195,6 +269,22 @@ void CMenuControllerSettings::_Init( void )
 	enableOsk.SetNameAndStatus( L( "Builtin on-screen keyboard" ), L( "Enable builtin on-screen keyboard in case your platform doesn't have any" ) );
 	enableOsk.SetCoord( 72, 440 );
 
+	// The dead zones sit in a second column, 520 across, so the screen stays
+	// as short as it was: five more rows in one column would not fit under the
+	// heading in 768 rows. Each slider's label is drawn above its y, so the
+	// first starts a row below the column heading.
+	deadZoneHeading.iFlags = QMF_INACTIVE|QMF_DROPSHADOW;
+	deadZoneHeading.szName = L( "Stick dead zones" );
+	deadZoneHeading.colorBase = uiColorHeading;
+	deadZoneHeading.SetRect( 520, 236, 400, 24 );
+
+	for( size_t i = 0; i < NUM_DEADZONES; i++ )
+	{
+		deadZone[i].Setup( 0.0f, DEADZONE_MAX, DEADZONE_STEP );
+		deadZone[i].SetCoord( 520, 300 + 60 * (int)i );
+		deadZone[i].onCvarChange = VoidCb( &CMenuControllerSettings::UpdateDeadZoneLabels );
+	}
+
 	done.SetNameAndStatus( L( "Done" ), nullptr );
 	done.SetPicture( PC_DONE );
 	done.onReleased = VoidCb( &CMenuControllerSettings::SaveAndPopMenu );
@@ -214,6 +304,9 @@ void CMenuControllerSettings::_Init( void )
 	AddItem( invertLook );
 	AddItem( vibrationEnable );
 	AddItem( enableOsk );
+	AddItem( deadZoneHeading );
+	for( size_t i = 0; i < NUM_DEADZONES; i++ )
+		AddItem( deadZone[i] );
 	AddItem( done );
 	AddItem( legend );
 }
